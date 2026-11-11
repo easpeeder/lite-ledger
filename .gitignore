@@ -1,0 +1,23 @@
+# Build output
+android/build/
+android/app/build/
+android/.gradle/
+.gradle/
+build/
+
+# Local config
+android/local.properties
+android/keystore.properties
+android/*.jks
+android/*.keystore
+
+# IDE
+.idea/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node
+node_modules/
