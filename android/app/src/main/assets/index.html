@@ -105,6 +105,11 @@
   .catrow .fill{height:100%;background:linear-gradient(90deg,#818cf8,#6366f1);border-radius:999px}
   .catrow .val{width:86px;text-align:right;font-size:12px;color:#6b7280;font-variant-numeric:tabular-nums;flex:none}
   .quick-add{width:100%;border:1px dashed #c7d2fe;background:#eef2ff;color:var(--accent);border-radius:14px;padding:12px;font-size:14px;font-weight:600;margin-bottom:14px}
+  .period-row{display:flex;align-items:center;gap:8px;padding:10px 0;border-top:1px solid #f4f5f7;font-size:13px}
+  .period-row .pd{flex:1;min-width:0;color:#374151}
+  .period-row .pd b{font-variant-numeric:tabular-nums;color:var(--ink)}
+  .period-row button{border:none;background:transparent;color:var(--accent);font-size:12px;padding:4px 6px;flex:none}
+  .period-row .pdel{color:#c3c8d1;font-size:17px}
   .card-title{font-size:14px;margin:0 0 8px;color:#374151}
   .muted{color:var(--muted);font-size:13px;margin:5px 0}
   .btn-row{display:flex;gap:10px;margin:12px 0 10px}
@@ -283,9 +288,10 @@
     <div class="top"><div class="brand">设置</div></div>
 
     <div class="card">
-      <h3 class="card-title">收入与社保</h3>
+      <h3 class="card-title">收入与五险一金</h3>
       <p class="muted" id="profileSummary">—</p>
-      <button class="btn full" id="editProfile">修改工资 / 五险一金 / 个税扣除</button>
+      <div id="incomeHistory"></div>
+      <button class="btn full" id="addIncomePeriod">＋ 新增收入段（换工作 / 调薪）</button>
     </div>
 
     <div class="card">
@@ -306,7 +312,7 @@
 
     <div class="card">
       <h3 class="card-title">关于</h3>
-      <p class="muted">轻记账 v1.2.0 · 极简本地记账</p>
+      <p class="muted">轻记账 v1.3.0 · 极简本地记账</p>
       <p class="muted">不联网、不上传、无广告。工资、个税、公积金和流水都只保存在这台设备上。</p>
       <p class="muted">开源项目 · MIT License</p>
     </div>
@@ -329,6 +335,11 @@
     <div class="dots"><i class="on"></i><i></i><i></i></div>
 
     <div class="step" data-step="1">
+      <div class="field">
+        <label>生效月份</label>
+        <input id="pFrom" type="month">
+        <p class="tip">从该月开始按这份工资计算，之前的月份沿用上一段收入。</p>
+      </div>
       <div class="field">
         <label>税前月薪（元）</label>
         <input id="pSalary" type="number" inputmode="decimal" placeholder="例如 20000">
@@ -443,6 +454,8 @@
   var period = 'month';
   var setupStep = 1;
   var setupEditing = false;
+  var setupEditingId = null;
+  var setupDraft = null;
 
   function load(){
     try{
@@ -457,12 +470,31 @@
     return normalize({});
   }
 
+  function normalizeProfile(p){
+    var out = Object.assign(clone(PROFILE), p || {});
+    out.si = Object.assign(clone(PROFILE.si), (p && p.si) || {});
+    out.fund = Object.assign(clone(PROFILE.fund), (p && p.fund) || {});
+    out.deduct = Object.assign(clone(PROFILE.deduct), (p && p.deduct) || {});
+    out.salary = Number(out.salary) || 0;
+    out.bonusMonths = Number(out.bonusMonths) || 0;
+    out.baseCap = Number(out.baseCap) || 0;
+    out.from = out.from || '2000-01';
+    out.id = out.id || uid();
+    return out;
+  }
+
+  function byFrom(a, b){ return a.from < b.from ? -1 : (a.from > b.from ? 1 : 0); }
+
   function normalize(d){
     d = d && typeof d === 'object' ? d : {};
-    d.profile = Object.assign(clone(PROFILE), d.profile || {});
-    d.profile.si = Object.assign(clone(PROFILE.si), (d.profile && d.profile.si) || {});
-    d.profile.fund = Object.assign(clone(PROFILE.fund), (d.profile && d.profile.fund) || {});
-    d.profile.deduct = Object.assign(clone(PROFILE.deduct), (d.profile && d.profile.deduct) || {});
+    if(Array.isArray(d.profileHistory) && d.profileHistory.length){
+      d.profileHistory = d.profileHistory.map(normalizeProfile).sort(byFrom);
+    }else if(d.profile){
+      d.profileHistory = [normalizeProfile(Object.assign({ from: '2000-01' }, d.profile))];
+    }else{
+      d.profileHistory = [normalizeProfile({ from: '2000-01' })];
+    }
+    delete d.profile;
     d.recurring = Array.isArray(d.recurring) ? d.recurring : [];
     d.records = Array.isArray(d.records) ? d.records : [];
     d.onboarded = !!d.onboarded;
@@ -493,34 +525,58 @@
     return 0;
   }
 
-  function monthlyDeductions(){
-    var d = S.profile.deduct;
+  function deductionsOf(p){
+    var d = p.deduct;
     return (d.loan ? 1000 : 0) + (Number(d.children) || 0) * 2000 + (Number(d.infants) || 0) * 2000 + (Number(d.elderly) || 0) + (d.education ? 400 : 0);
   }
 
-  var _planKey = null, _plan = null;
+  function profileFor(ym){
+    var list = S.profileHistory || [];
+    var found = null;
+    for(var i = 0; i < list.length; i++){
+      if(list[i].from <= ym) found = list[i];
+      else break;
+    }
+    return found;
+  }
 
-  function computePlan(p){
+  function currentProfile(){
+    var list = S.profileHistory || [];
+    return list.length ? list[list.length - 1] : null;
+  }
+
+  function monthFigures(p, cumTaxable){
+    if(!p || !(p.salary > 0)) return { taxable: 0, tax: 0, income: 0, fundIn: 0 };
     var base = p.baseCap > 0 ? Math.min(p.salary, p.baseCap) : p.salary;
     var si = base * ((Number(p.si.pension) + Number(p.si.medical) + Number(p.si.unemployment)) / 100);
     var fund = base * ((Number(p.fund.basic) + Number(p.fund.extra)) / 100);
-    var ded = 5000 + si + fund + monthlyDeductions();
+    var ded = 5000 + si + fund + deductionsOf(p);
+    var taxable = Math.max(0, p.salary - ded);
+    var t = taxOf(cumTaxable + taxable);
+    var wh = Math.max(0, t - taxOf(cumTaxable));
+    return { taxable: taxable, tax: wh, income: p.salary - si - fund - wh, fundIn: fund * 2 };
+  }
+
+  var _yearCache = {};
+
+  function planFor(year){
+    var key = year + '|' + JSON.stringify(S.profileHistory);
+    if(_yearCache[key]) return _yearCache[key];
 
     var months = [];
-    var cumTaxable = 0, cumTax = 0;
+    var cumTaxable = 0;
     for(var m = 1; m <= 12; m++){
-      var taxable = Math.max(0, p.salary - ded);
-      cumTaxable += taxable;
-      var t = taxOf(cumTaxable);
-      var wh = Math.max(0, t - cumTax);
-      cumTax = t;
-      months.push({ income: p.salary - si - fund - wh, tax: wh, fundIn: fund * 2 });
+      var p = profileFor(year + '-' + pad(m));
+      var f = monthFigures(p, cumTaxable);
+      cumTaxable += f.taxable;
+      months.push({ income: f.income, tax: f.tax, fundIn: f.fundIn, taxable: f.taxable });
     }
 
+    var p12 = profileFor(year + '-12');
     var bonus = { amount: 0, tax: 0, net: 0 };
-    if(p.salary > 0 && p.bonusMonths > 0){
-      bonus.amount = p.salary * p.bonusMonths;
-      if(p.bonusSeparate){
+    if(p12 && p12.salary > 0 && p12.bonusMonths > 0){
+      bonus.amount = p12.salary * p12.bonusMonths;
+      if(p12.bonusSeparate){
         var per = bonus.amount / 12;
         var rate = 0.45, qd = 15160;
         for(var i = 0; i < BONUS.length; i++){
@@ -528,23 +584,16 @@
         }
         bonus.tax = Math.max(0, bonus.amount * rate - qd);
       }else{
-        var annual = Math.max(0, (p.salary - ded) * 12);
-        bonus.tax = Math.max(0, taxOf(annual + bonus.amount) - taxOf(annual));
+        bonus.tax = Math.max(0, taxOf(cumTaxable + bonus.amount) - taxOf(cumTaxable));
       }
       bonus.net = bonus.amount - bonus.tax;
       months[11].income += bonus.net;
       months[11].tax += bonus.tax;
     }
 
-    return { base: base, si: si, fund: fund, ded: ded, months: months, bonus: bonus };
-  }
-
-  function plan(){
-    var key = JSON.stringify(S.profile);
-    if(_plan && key === _planKey) return _plan;
-    _planKey = key;
-    _plan = computePlan(S.profile);
-    return _plan;
+    var out = { months: months, bonus: bonus, year: year };
+    _yearCache[key] = out;
+    return out;
   }
 
   /* ---------- recurring ---------- */
@@ -569,7 +618,7 @@
 
   /* ---------- totals ---------- */
   function totals(year, month){
-    var P = plan();
+    var P = planFor(year);
     var mi = month - 1;
     var cashIn = P.months[mi].income;
     var fundIn = P.months[mi].fundIn;
@@ -1041,17 +1090,63 @@
 
   /* ---------- settings ---------- */
   function renderSettings(){
-    var p = S.profile;
-    $('profileSummary').textContent = '月薪 ' + shortMoney(p.salary) + ' · 年终奖 ' + (p.bonusMonths || 0) + ' 个月 · 公积金 ' + ((Number(p.fund.basic) || 0) + (Number(p.fund.extra) || 0)) + '%';
+    var now = new Date();
+    var nowYm = now.getFullYear() + '-' + pad(now.getMonth() + 1);
+    var p = profileFor(nowYm) || currentProfile();
+    if(p){
+      $('profileSummary').textContent = '当前：月薪 ' + shortMoney(p.salary) + ' · 年终奖 ' + (p.bonusMonths || 0) + ' 个月 · 公积金 ' + ((Number(p.fund.basic) || 0) + (Number(p.fund.extra) || 0)) + '%';
+    }
+    var box = $('incomeHistory');
+    box.innerHTML = '';
+    S.profileHistory.forEach(function(item){
+      var row = document.createElement('div');
+      row.className = 'period-row';
+      var d = document.createElement('div');
+      d.className = 'pd';
+      var b = document.createElement('b');
+      b.textContent = item.from;
+      d.appendChild(b);
+      d.appendChild(document.createTextNode(' 起 · ' + shortMoney(item.salary) + ' / 月'));
+      var edit = document.createElement('button');
+      edit.type = 'button';
+      edit.textContent = '编辑';
+      edit.addEventListener('click', function(){ openSetup(1, true, item.id); });
+      var del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'pdel';
+      del.textContent = '×';
+      del.addEventListener('click', function(){
+        if(S.profileHistory.length <= 1){ toast('至少保留一段收入'); return; }
+        S.profileHistory = S.profileHistory.filter(function(x){ return x.id !== item.id; });
+        _yearCache = {};
+        save5(); renderHome(); renderSettings(); toast('已删除收入段');
+      });
+      row.appendChild(d); row.appendChild(edit); row.appendChild(del);
+      box.appendChild(row);
+    });
     var annual = S.recurring.reduce(function(s, it){ return s + itemAnnual(it); }, 0);
     $('recSummary').textContent = S.recurring.length + ' 项固定支出 · 全年 ' + shortMoney(annual);
     $('totalCount').textContent = S.records.length;
   }
 
   /* ---------- setup wizard ---------- */
-  function openSetup(step, editing){
+  function findPeriod(id){
+    for(var i = 0; i < S.profileHistory.length; i++) if(S.profileHistory[i].id === id) return S.profileHistory[i];
+    return null;
+  }
+
+  function openSetup(step, editing, periodId){
     setupEditing = !!editing;
     setupStep = step || 1;
+    var p = periodId ? findPeriod(periodId) : (editing ? currentProfile() : S.profileHistory[0]);
+    setupDraft = clone(p || PROFILE);
+    setupEditingId = periodId || (editing ? null : (p ? p.id : null));
+    if(!setupDraft.from) setupDraft.from = '2000-01';
+    if(!S.onboarded) setupDraft.from = (new Date().getFullYear()) + '-01';
+    if(editing && !periodId){
+      setupDraft.from = ymd(new Date()).slice(0, 7);
+      setupDraft.id = null;
+    }
     $('setClose').classList.toggle('hidden', !editing);
     fillProfileInputs();
     renderRecEditor();
@@ -1064,7 +1159,7 @@
     var salary = parseFloat($('pSalary').value) || 0;
     var el = $('pPreview');
     if(!salary){ el.textContent = ''; return; }
-    var p = clone(S.profile);
+    var p = clone(setupDraft);
     p.salary = salary;
     p.bonusMonths = parseFloat($('pBonus').value) || 0;
     p.baseCap = parseFloat($('pCap').value) || 0;
@@ -1073,8 +1168,8 @@
     p.si.unemployment = parseFloat($('pUnemp').value) || 0;
     p.fund.basic = parseFloat($('pFundBasic').value) || 0;
     p.fund.extra = parseFloat($('pFundExtra').value) || 0;
-    var P = computePlan(p);
-    el.innerHTML = '预计首月到手 <b>' + shortMoney(P.months[0].income) + '</b> · 公积金双边 <b>' + shortMoney(P.months[0].fundIn) + '</b><br><span style="font-size:11px;color:#6366f1">未含下一步的专项附加扣除</span>';
+    var f = monthFigures(p, 0);
+    el.innerHTML = '预计首月到手 <b>' + shortMoney(f.income) + '</b> · 公积金双边 <b>' + shortMoney(f.fundIn) + '</b><br><span style="font-size:11px;color:#6366f1">未含下一步的专项附加扣除</span>';
   }
 
   function bindPreview(){
@@ -1084,7 +1179,8 @@
   }
 
   function fillProfileInputs(){
-    var p = S.profile;
+    var p = setupDraft;
+    $('pFrom').value = p.from || '';
     $('pSalary').value = p.salary || '';
     $('pBonus').value = p.bonusMonths || '';
     $('pCap').value = p.baseCap || 0;
@@ -1102,7 +1198,8 @@
   }
 
   function readProfileInputs(){
-    var p = S.profile;
+    var p = setupDraft;
+    p.from = $('pFrom').value || p.from;
     p.salary = parseFloat($('pSalary').value) || 0;
     p.bonusMonths = parseFloat($('pBonus').value) || 0;
     p.baseCap = parseFloat($('pCap').value) || 0;
@@ -1114,7 +1211,7 @@
   }
 
   function readDeductInputs(){
-    var p = S.profile;
+    var p = setupDraft;
     p.deduct.loan = $('dLoan').checked;
     p.deduct.education = $('dEdu').checked;
     p.deduct.children = Math.max(0, parseInt($('dChildren').value, 10) || 0);
@@ -1132,7 +1229,7 @@
     $('setBack').classList.toggle('hidden', setupStep === 1);
     $('setNext').textContent = setupStep === 3 ? '完成' : '下一步';
     var titles = [
-      ['收入与五险一金', '先填工资，后面自动算个税和公积金'],
+      ['收入与五险一金', '设置生效月份，换工作/调薪后从这里加一段'],
       ['个税专项扣除', '有就勾上，没有就跳过'],
       ['固定支出', '把每月/每年的硬支出加进来']
     ];
@@ -1146,6 +1243,8 @@
     if(setupStep === 1){
       var salary = parseFloat($('pSalary').value) || 0;
       if(salary <= 0){ toast('请填写税前月薪'); $('pSalary').focus(); return; }
+      var from = $('pFrom').value;
+      if(!/^\d{4}-\d{2}$/.test(from)){ toast('请选择生效月份'); $('pFrom').focus(); return; }
       readProfileInputs();
     }else if(setupStep === 2){
       readDeductInputs();
@@ -1158,11 +1257,19 @@
   }
 
   function finishSetup(){
-    save5();
+    var p = clone(setupDraft);
+    p.id = p.id || uid();
+    var list = S.profileHistory;
+    var idx = setupEditingId ? list.findIndex(function(x){ return x.id === setupEditingId; }) : -1;
+    if(idx >= 0) list[idx] = p;
+    else list.push(p);
+    S.profileHistory = list.filter(function(x){ return x.from !== p.from || x.id === p.id; }).sort(byFrom);
     S.onboarded = true;
+    _yearCache = {};
     save5();
     $('setup').classList.add('hidden');
     renderHome();
+    renderEntry();
     renderSettings();
     toast('设置已保存');
   }
@@ -1242,7 +1349,7 @@
   function exportData(){
     openModal('导出数据', '复制下面的 JSON 保存，导入时会一并恢复工资设置和固定支出。', JSON.stringify({
       app: 'LiteLedger', version: 2, exportedAt: new Date().toISOString(),
-      profile: S.profile, recurring: S.recurring, records: S.records
+      profileHistory: S.profileHistory, recurring: S.recurring, records: S.records
     }, null, 2), '完成', null, true);
   }
 
@@ -1338,7 +1445,7 @@
   $('setNext').addEventListener('click', setupNext);
   $('setBack').addEventListener('click', function(){ if(setupStep > 1){ setupStep--; showStep(); } });
   $('setClose').addEventListener('click', function(){ $('setup').classList.add('hidden'); });
-  $('editProfile').addEventListener('click', function(){ openSetup(1, true); });
+  $('addIncomePeriod').addEventListener('click', function(){ openSetup(1, true, null); });
   $('editRecurring').addEventListener('click', function(){ openSetup(3, true); });
   function addRecurring(){
     S.recurring.push({ id: uid(), name: '', amount: 0, period: 'monthly', month: 1, account: 'cash', category: '居住' });
