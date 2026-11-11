@@ -98,7 +98,7 @@ git tag v1.0.0
 git push origin v1.0.0
 ```
 
-Actions 会自动构建 APK 并创建 Release（带 APK 附件）。首次使用请在仓库 `Settings → Actions → General` 把 Workflow permissions 设为 **Read and write**。
+Actions 会自动构建 APK 并创建 Release（带 APK 附件）。首次使用请在仓库 `Settings → Actions → General` 把 Workflow permissions 设为 **Read and write**；想同时上线网页版，在 `Settings → Pages` 把 Source 设为 **GitHub Actions**。
 
 想发布和 `dist/` 里签名一致的正式包，请先在仓库 Secrets 配置上表中的四个变量，并妥善备份 `android/litledger-release.jks`。
 
