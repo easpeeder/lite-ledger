@@ -1,4 +1,4 @@
-const CACHE = 'litledger-v1';
+const CACHE = 'litledger-v2';
 const ASSETS = [
   './',
   './index.html',

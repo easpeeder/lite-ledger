@@ -102,6 +102,7 @@
   .catrow .track{flex:1;height:8px;background:#f1f3f6;border-radius:999px;overflow:hidden}
   .catrow .fill{height:100%;background:linear-gradient(90deg,#818cf8,#6366f1);border-radius:999px}
   .catrow .val{width:86px;text-align:right;font-size:12px;color:#6b7280;font-variant-numeric:tabular-nums;flex:none}
+  .quick-add{width:100%;border:1px dashed #c7d2fe;background:#eef2ff;color:var(--accent);border-radius:14px;padding:12px;font-size:14px;font-weight:600;margin-bottom:14px}
   .card-title{font-size:14px;margin:0 0 8px;color:#374151}
   .muted{color:var(--muted);font-size:13px;margin:5px 0}
   .btn-row{display:flex;gap:10px;margin:12px 0 10px}
@@ -123,8 +124,8 @@
   .modal-actions button{flex:1;padding:12px;border-radius:12px;border:1px solid var(--line);background:#fff;font-size:14px}
   .modal-actions .primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
   /* setup */
-  .setup{position:fixed;inset:0;z-index:100;background:var(--bg);overflow:auto;display:flex;justify-content:center}
-  .setup-inner{width:100%;max-width:520px;padding:22px 18px calc(96px + env(safe-area-inset-bottom));min-height:100%}
+  .setup{position:fixed;inset:0;z-index:100;background:var(--bg);display:flex;flex-direction:column;overflow:hidden}
+  .setup-inner{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;width:100%;max-width:520px;margin:0 auto;padding:22px 18px 24px}
   .setup-top{display:flex;align-items:flex-start;gap:10px;margin-bottom:18px}
   .setup-top h2{margin:0 0 4px;font-size:20px}
   .setup-top p{margin:0;color:var(--muted);font-size:12.5px}
@@ -140,7 +141,7 @@
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   .check{display:flex;align-items:center;gap:9px;padding:12px;background:#fff;border:1px solid var(--line);border-radius:12px;margin-bottom:10px;font-size:14px}
   .check input{width:18px;height:18px;accent-color:var(--accent)}
-  .setup-actions{position:fixed;left:0;right:0;bottom:0;max-width:520px;margin:0 auto;padding:12px 18px calc(12px + env(safe-area-inset-bottom));background:rgba(255,255,255,.97);border-top:1px solid var(--line);display:flex;gap:10px;z-index:101}
+  .setup-actions{width:100%;max-width:520px;margin:0 auto;padding:12px 18px calc(12px + env(safe-area-inset-bottom));background:rgba(255,255,255,.97);border-top:1px solid var(--line);display:flex;gap:10px;z-index:101}
   .setup-actions .btn{flex:1;padding:13px;border-radius:13px;font-size:15px}
   .setup-actions .primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
   .ritem{border:1px solid var(--line);border-radius:13px;padding:10px;margin-bottom:10px;background:#fff}
@@ -188,6 +189,29 @@
       <div><span>公积金结余</span><b id="fBalance">¥0</b></div>
     </div>
 
+    <button class="quick-add" id="quickAdd">＋ 记一笔</button>
+
+    <details class="fixed">
+      <summary><span>固定支出（含公积金）· 本月 <b id="fixedTotal">¥0</b></span><span class="hint">展开</span></summary>
+      <div id="fixedList"></div>
+    </details>
+
+    <div class="card">
+      <div class="list-head"><h3>本月记录</h3><span id="countLabel">0 笔</span></div>
+      <div id="records"></div>
+      <div id="emptyState" class="empty">
+        <div class="emoji">📒</div>
+        <p>还没有记录，记下第一笔吧</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="view hidden" id="view-entry">
+    <div class="top">
+      <div class="brand">记一笔</div>
+      <span class="hint">收入 / 支出</span>
+    </div>
+
     <div class="card">
       <div class="seg" id="typeSeg">
         <button data-type="expense" class="active">支出</button>
@@ -206,18 +230,10 @@
       <button id="saveBtn" class="save" disabled>记一笔</button>
     </div>
 
-    <details class="fixed">
-      <summary><span>固定支出（含公积金）· 本月 <b id="fixedTotal">¥0</b></span><span class="hint">展开</span></summary>
-      <div id="fixedList"></div>
-    </details>
-
     <div class="card">
-      <div class="list-head"><h3>本月记录</h3><span id="countLabel">0 笔</span></div>
-      <div id="records"></div>
-      <div id="emptyState" class="empty">
-        <div class="emoji">📒</div>
-        <p>还没有记录，记下第一笔吧</p>
-      </div>
+      <div class="list-head"><h3>最近记录</h3><span id="recentCount">0 笔</span></div>
+      <div id="recentList"></div>
+      <div id="recentEmpty" class="empty small hidden"><p>还没有记录</p></div>
     </div>
   </section>
 
@@ -287,7 +303,7 @@
 
     <div class="card">
       <h3 class="card-title">关于</h3>
-      <p class="muted">轻记账 v1.1.0 · 极简本地记账</p>
+      <p class="muted">轻记账 v1.1.1 · 极简本地记账</p>
       <p class="muted">不联网、不上传、无广告。工资、个税、公积金和流水都只保存在这台设备上。</p>
       <p class="muted">开源项目 · MIT License</p>
     </div>
@@ -295,6 +311,7 @@
 
   <nav class="tabbar">
     <button data-tab="home" class="active"><span class="ti">🏠</span>首页</button>
+    <button data-tab="entry"><span class="ti">✏️</span>记一笔</button>
     <button data-tab="stats"><span class="ti">📊</span>统计</button>
     <button data-tab="settings"><span class="ti">⚙️</span>设置</button>
   </nav>
@@ -356,8 +373,9 @@
 
     <div class="step hidden" data-step="3">
       <p class="tip" style="margin:0 0 10px">把房贷/房租、物业、话费、保险等固定支出加进来，会自动计入首页和统计。选「公积金」的支出不计入现金。</p>
+      <button class="add" id="recAdd" style="margin:0 0 10px">＋ 添加固定支出</button>
       <div id="recList"></div>
-      <button class="add" id="recAdd">＋ 添加固定支出</button>
+      <button class="add" id="recAdd2">＋ 添加固定支出</button>
       <div class="rec-total" id="recTotal"></div>
     </div>
   </div>
@@ -628,12 +646,13 @@
 
   /* ---------- tabs ---------- */
   function showTab(tab){
-    if(['home','stats','settings'].indexOf(tab) < 0) tab = 'home';
-    ['home','stats','settings'].forEach(function(t){ $('view-' + t).classList.toggle('hidden', t !== tab); });
+    if(['home','entry','stats','settings'].indexOf(tab) < 0) tab = 'home';
+    ['home','entry','stats','settings'].forEach(function(t){ $('view-' + t).classList.toggle('hidden', t !== tab); });
     var btns = document.querySelectorAll('.tabbar button');
     for(var i = 0; i < btns.length; i++) btns[i].classList.toggle('active', btns[i].getAttribute('data-tab') === tab);
     if(tab === 'stats') renderStats();
     if(tab === 'settings') renderSettings();
+    if(tab === 'entry') renderEntry();
     if(location.hash !== '#' + tab){
       try{ history.replaceState(null, '', '#' + tab); }catch(e){ location.hash = tab; }
     }
@@ -734,6 +753,22 @@
     });
   }
 
+  function renderEntry(){
+    var list = $('recentList');
+    list.innerHTML = '';
+    var arr = S.records.slice().sort(function(a, b){
+      if(a.date === b.date) return (b.createdAt || 0) - (a.createdAt || 0);
+      return a.date < b.date ? 1 : -1;
+    }).slice(0, 10);
+    $('recentCount').textContent = S.records.length + ' 笔';
+    if(!arr.length){
+      $('recentEmpty').classList.remove('hidden');
+      return;
+    }
+    $('recentEmpty').classList.add('hidden');
+    arr.forEach(function(r){ list.appendChild(recordRow(r, true)); });
+  }
+
   function dateLabel(date){
     var d = parseDate(date);
     var today = new Date();
@@ -745,7 +780,7 @@
     return base + ' · 周' + '日一二三四五六'.charAt(d.getDay());
   }
 
-  function recordRow(r){
+  function recordRow(r, showDate){
     var row = document.createElement('div');
     row.className = 'rec';
     var ico = document.createElement('div');
@@ -759,7 +794,7 @@
     t.textContent = r.note ? r.note : r.category;
     var s = document.createElement('div');
     s.className = 's';
-    s.textContent = r.category + ' · ' + (r.account === 'fund' ? '公积金' : '现金');
+    s.textContent = r.category + ' · ' + (r.account === 'fund' ? '公积金' : '现金') + (showDate ? ' · ' + r.date.slice(5) : '');
     main.appendChild(t); main.appendChild(s);
     row.appendChild(main);
     var amt = document.createElement('div');
@@ -771,7 +806,7 @@
     del.addEventListener('click', function(){
       if(!confirm('删除这条记录？')) return;
       S.records = S.records.filter(function(x){ return x.id !== r.id; });
-      save5(); renderHome(); toast('已删除');
+      save5(); renderHome(); renderEntry(); toast('已删除');
     });
     row.appendChild(del);
     return row;
@@ -800,7 +835,7 @@
     save5();
     viewMonth = startOfMonth(parseDate(date));
     $('amount').value = ''; $('note').value = '';
-    updateSaveState(); renderHome(); toast('已记一笔'); $('amount').focus();
+    updateSaveState(); renderHome(); renderEntry(); toast('已记一笔'); $('amount').focus();
   }
 
   /* ---------- stats ---------- */
@@ -1162,6 +1197,11 @@
     viewMonth = new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 1);
     renderHome();
   });
+  $('quickAdd').addEventListener('click', function(){
+    showTab('entry');
+    setTimeout(function(){ $('amount').focus(); }, 80);
+  });
+
   $('todayBtn').addEventListener('click', function(){
     viewMonth = startOfMonth(new Date());
     $('date').value = ymd(new Date());
@@ -1197,10 +1237,12 @@
   $('setClose').addEventListener('click', function(){ $('setup').classList.add('hidden'); });
   $('editProfile').addEventListener('click', function(){ openSetup(1, true); });
   $('editRecurring').addEventListener('click', function(){ openSetup(3, true); });
-  $('recAdd').addEventListener('click', function(){
+  function addRecurring(){
     S.recurring.push({ id: uid(), name: '', amount: 0, period: 'monthly', month: 1, account: 'cash', category: '居住' });
     save5(); renderRecEditor();
-  });
+  }
+  $('recAdd').addEventListener('click', addRecurring);
+  $('recAdd2').addEventListener('click', addRecurring);
 
   /* ---------- init ---------- */
   $('date').value = ymd(new Date());
@@ -1208,6 +1250,7 @@
   renderAccounts();
   renderChips();
   renderHome();
+  renderEntry();
   renderSettings();
   showTab((location.hash || '#home').replace('#', ''));
 
