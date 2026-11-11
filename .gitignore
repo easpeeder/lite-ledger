@@ -21,3 +21,12 @@ Thumbs.db
 
 # Node
 node_modules/
+
+# iOS build output
+ios/build/
+ios/build-device/
+ios/Payload/
+ios/*.ipa
+ios/*.zip
+ios/*.xcodeproj/xcuserdata/
+ios/*.xcodeproj/project.xcworkspace/xcuserdata/

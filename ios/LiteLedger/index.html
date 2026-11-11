@@ -1,0 +1,1370 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#4f46e5">
+<meta name="description" content="轻记账：极简本地记账，工资个税自动计算，现金与公积金分开统计，数据只保存在本机。">
+<title>轻记账 · Lite Ledger</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<style>
+  :root{
+    --bg:#f4f5f7; --card:#fff; --ink:#111827; --muted:#6b7280; --line:#eceef1;
+    --accent:#4f46e5; --accent-2:#7c3aed; --red:#ef4444; --green:#10b981;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0;background:#e9ebf0}
+  body{color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;-webkit-font-smoothing:antialiased}
+  button{font:inherit;cursor:pointer}
+  input,select,textarea{font:inherit;color:inherit}
+  .app{max-width:520px;margin:0 auto;min-height:100vh;min-height:100dvh;background:var(--bg);padding-bottom:calc(76px + env(safe-area-inset-bottom));position:relative;overflow-x:hidden}
+  .view{padding:16px 16px 8px}
+  .hidden{display:none !important}
+  .top{display:flex;align-items:center;justify-content:space-between;padding:4px 2px 14px;min-height:40px}
+  .brand{font-size:20px;font-weight:700;letter-spacing:-.3px;display:flex;align-items:center;gap:8px}
+  .logo{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;color:#fff;font-size:16px;font-weight:700;background:linear-gradient(135deg,var(--accent),var(--accent-2));box-shadow:0 4px 10px -3px rgba(79,70,229,.6)}
+  .today-btn{border:none;background:#fff;color:var(--accent);font-size:12.5px;padding:7px 12px;border-radius:999px;box-shadow:0 1px 2px rgba(17,24,39,.06)}
+  .hint{color:var(--muted);font-size:12px}
+  .monthbar{display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:12px}
+  .monthbar button{border:none;background:#fff;width:34px;height:34px;border-radius:11px;font-size:19px;color:#4b5563;box-shadow:0 1px 2px rgba(17,24,39,.05);line-height:1}
+  .monthbar span{font-size:15px;font-weight:600;min-width:110px;text-align:center}
+  .summary-card{background:linear-gradient(135deg,var(--accent),var(--accent-2));border-radius:20px;padding:18px;color:#fff;box-shadow:0 12px 26px -12px rgba(79,70,229,.75);margin-bottom:12px}
+  .s-label{font-size:13px;opacity:.85}
+  .s-value{font-size:34px;font-weight:700;letter-spacing:-1px;margin:2px 0 16px;font-variant-numeric:tabular-nums}
+  .s-row{display:flex;gap:28px}
+  .s-row span{display:block;font-size:12px;opacity:.8;margin-bottom:2px}
+  .s-row b{font-size:15px;font-weight:600;font-variant-numeric:tabular-nums}
+  .fund-card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:12px 16px;margin-bottom:14px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .fund-card div{text-align:center}
+  .fund-card span{display:block;font-size:11px;color:var(--muted);margin-bottom:2px}
+  .fund-card b{font-size:14px;font-variant-numeric:tabular-nums}
+  .card{background:var(--card);border-radius:18px;padding:16px;margin-bottom:14px;box-shadow:0 1px 3px rgba(17,24,39,.04)}
+  .seg{display:flex;background:#f1f3f6;border-radius:12px;padding:4px;gap:4px;margin-bottom:14px}
+  .seg button{flex:1;border:none;background:transparent;padding:8px;border-radius:9px;font-size:14px;color:var(--muted);font-weight:500}
+  .seg button.active{background:#fff;color:var(--accent);box-shadow:0 1px 3px rgba(17,24,39,.08);font-weight:600}
+  .amount-row{display:flex;align-items:center;gap:6px;border-bottom:1px solid var(--line);padding:2px 2px 10px;margin-bottom:12px}
+  .currency{font-size:24px;color:#9ca3af;font-weight:600}
+  #amount{border:none;outline:none;background:transparent;font-size:34px;font-weight:700;width:100%;min-width:0;letter-spacing:-1px;font-variant-numeric:tabular-nums}
+  #amount::placeholder{color:#d1d5db}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+  .chip{border:1px solid #e5e7eb;background:#fff;border-radius:999px;padding:7px 12px;font-size:13px;color:#4b5563;display:inline-flex;gap:5px;align-items:center;line-height:1}
+  .chip.active{background:#eef2ff;border-color:#c7d2fe;color:var(--accent);font-weight:600}
+  .meta-row{display:flex;gap:8px;margin-bottom:10px}
+  .meta-row select,.meta-row input,.note-input{flex:1;min-width:0;border:1px solid var(--line);background:#fafbfc;border-radius:11px;padding:10px;font-size:13px;color:#374151;outline:none}
+  .meta-row select:focus,.meta-row input:focus,.note-input:focus{border-color:#c7d2fe;background:#fff}
+  .note-input{width:100%;margin-bottom:2px}
+  .save{width:100%;border:none;border-radius:13px;padding:14px;font-size:15px;font-weight:600;color:#fff;background:var(--accent);margin-top:12px}
+  .save:disabled{background:#c7cbe0;cursor:default}
+  .list-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+  .list-head h3{font-size:14px;margin:0;color:#374151;font-weight:600}
+  .list-head span{font-size:12px;color:#9ca3af}
+  .day-group{margin-top:8px}
+  .day-head{font-size:11px;color:#9ca3af;margin:10px 2px 4px}
+  .rec-wrap{position:relative;overflow:hidden;border-bottom:1px solid #f4f5f7}
+  .rec-wrap:last-child{border-bottom:none}
+  .rec-action{position:absolute;top:0;right:0;bottom:0;width:76px;border:none;background:var(--red);color:#fff;font-size:13px;font-weight:600;letter-spacing:.5px}
+  .rec{display:flex;align-items:center;gap:10px;padding:8px 0;background:#fff;position:relative;z-index:1;touch-action:pan-y;transition:transform .2s}
+  .rec .ico{width:36px;height:36px;border-radius:11px;background:#f3f4f6;display:grid;place-items:center;font-size:17px;flex:none}
+  .rec .main{flex:1;min-width:0}
+  .rec .t{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rec .s{font-size:11px;color:#9ca3af;margin-top:1px}
+  .rec .amt{font-size:14px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .rec .amt.inc{color:var(--green)}
+  .rec .del{border:none;background:transparent;color:#d1d5db;font-size:17px;padding:6px 0 6px 6px;line-height:1}
+  .rec .del:active{color:var(--red)}
+  .empty{text-align:center;padding:30px 0 26px;color:#9ca3af;font-size:13px}
+  .empty .emoji{font-size:30px;margin-bottom:8px}
+  .empty p{margin:0}
+  details.fixed{border-radius:16px;background:#fff;border:1px solid var(--line);padding:0 16px;margin-bottom:14px}
+  details.fixed summary{list-style:none;padding:14px 0;display:flex;justify-content:space-between;align-items:center;font-size:13.5px;color:#374151;cursor:pointer}
+  details.fixed summary::-webkit-details-marker{display:none}
+  details.fixed summary b{font-variant-numeric:tabular-nums}
+  .fixed-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px solid #f4f5f7;font-size:13px}
+  .fixed-row .n{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .fixed-row .a{color:var(--muted);font-size:11px}
+  .fixed-row .v{font-variant-numeric:tabular-nums}
+  .stat-cols{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+  .stat-col{background:#fff;border-radius:16px;padding:14px;border:1px solid var(--line)}
+  .stat-col h3{margin:0 0 8px;font-size:12px;color:var(--muted);font-weight:600;letter-spacing:.4px}
+  .stat-row{display:flex;justify-content:space-between;align-items:baseline;padding:4px 0}
+  .stat-row span{font-size:12px;color:var(--muted)}
+  .stat-row b{font-size:15px;font-variant-numeric:tabular-nums}
+  .stat-col.fund h3{color:#2563eb}
+  .chart{display:flex;align-items:flex-end;gap:4px;height:150px;padding-top:8px}
+  .chart .col{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:4px;height:100%;min-width:0}
+  .chart .slot{display:flex;align-items:flex-end;justify-content:center;height:128px;width:100%}
+  .chart .stack{display:flex;flex-direction:column;width:62%;border-radius:4px 4px 2px 2px;overflow:hidden;min-height:2px}
+  .chart .part{width:100%;flex:none;margin:0}
+  .chart .part.c{background:#f87171}
+  .chart .part.f{background:#60a5fa}
+  .chart .lbl{font-size:9px;color:#9ca3af;height:12px}
+  .catrow{display:flex;align-items:center;gap:10px;padding:7px 0}
+  .catrow .name{width:76px;font-size:13px;color:#374151;display:flex;gap:5px;align-items:center;flex:none}
+  .catrow .track{flex:1;height:8px;background:#f1f3f6;border-radius:999px;overflow:hidden}
+  .catrow .fill{height:100%;background:linear-gradient(90deg,#818cf8,#6366f1);border-radius:999px}
+  .catrow .val{width:86px;text-align:right;font-size:12px;color:#6b7280;font-variant-numeric:tabular-nums;flex:none}
+  .quick-add{width:100%;border:1px dashed #c7d2fe;background:#eef2ff;color:var(--accent);border-radius:14px;padding:12px;font-size:14px;font-weight:600;margin-bottom:14px}
+  .card-title{font-size:14px;margin:0 0 8px;color:#374151}
+  .muted{color:var(--muted);font-size:13px;margin:5px 0}
+  .btn-row{display:flex;gap:10px;margin:12px 0 10px}
+  .btn{flex:1;border:1px solid var(--line);background:#fff;border-radius:12px;padding:11px;font-size:14px;color:#374151}
+  .btn.danger{color:var(--red);border-color:#fee2e2}
+  .btn.full{width:100%;flex:none}
+  .tabbar{position:fixed;left:0;right:0;bottom:0;max-width:520px;margin:0 auto;z-index:20;background:rgba(255,255,255,.97);backdrop-filter:blur(12px);border-top:1px solid var(--line);display:flex;padding:7px 6px calc(7px + env(safe-area-inset-bottom))}
+  .tabbar button{flex:1;border:none;background:transparent;padding:5px 0;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:10.5px;color:#9ca3af}
+  .tabbar .ti{font-size:19px;line-height:1}
+  .tabbar button.active{color:var(--accent);font-weight:600}
+  .toast{position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(8px);background:rgba(17,24,39,.92);color:#fff;padding:10px 16px;border-radius:999px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .18s,transform .18s;z-index:200;white-space:nowrap}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);pointer-events:auto}
+  .toast button{border:none;background:transparent;color:#c7d2fe;font-size:13px;font-weight:700;padding:0 0 0 4px}
+  .modal{position:fixed;inset:0;background:rgba(17,24,39,.45);display:flex;align-items:flex-end;justify-content:center;z-index:150}
+  .modal-card{background:#fff;width:100%;max-width:520px;border-radius:20px 20px 0 0;padding:20px 18px calc(20px + env(safe-area-inset-bottom));max-height:88vh;overflow:auto}
+  .modal-card h3{margin:0 0 6px;font-size:16px}
+  .modal-card p{margin:0 0 6px;font-size:12.5px;color:var(--muted)}
+  .modal-card textarea{width:100%;height:170px;border:1px solid var(--line);border-radius:12px;padding:10px;font:12px/1.5 ui-monospace,Menlo,Consolas,monospace;resize:none;margin:10px 0;background:#fafbfc}
+  .modal-actions{display:flex;gap:10px}
+  .modal-actions button{flex:1;padding:12px;border-radius:12px;border:1px solid var(--line);background:#fff;font-size:14px}
+  .modal-actions .primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+  /* setup */
+  .setup{position:fixed;inset:0;z-index:100;background:var(--bg);display:flex;flex-direction:column;overflow:hidden}
+  .setup-inner{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;width:100%;max-width:520px;margin:0 auto;padding:22px 18px 24px}
+  .setup-top{display:flex;align-items:flex-start;gap:10px;margin-bottom:18px}
+  .setup-top h2{margin:0 0 4px;font-size:20px}
+  .setup-top p{margin:0;color:var(--muted);font-size:12.5px}
+  .setup-top .x{margin-left:auto;border:none;background:#fff;width:32px;height:32px;border-radius:10px;font-size:18px;color:#9ca3af}
+  .dots{display:flex;gap:6px;margin-bottom:18px}
+  .dots i{height:4px;flex:1;border-radius:99px;background:#e5e7eb}
+  .dots i.on{background:var(--accent)}
+  .step .field{margin-bottom:14px}
+  .field label{display:block;font-size:12.5px;color:var(--muted);margin-bottom:5px}
+  .field input,.field select{width:100%;border:1px solid var(--line);border-radius:11px;padding:11px 12px;font-size:15px;background:#fff;outline:none}
+  .field input:focus,.field select:focus{border-color:#a5b4fc}
+  .field .tip{font-size:11px;color:#9ca3af;margin:5px 0 0}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .check{display:flex;align-items:center;gap:9px;padding:12px;background:#fff;border:1px solid var(--line);border-radius:12px;margin-bottom:10px;font-size:14px}
+  .check input{width:18px;height:18px;accent-color:var(--accent)}
+  .setup-actions{width:100%;max-width:520px;margin:0 auto;padding:12px 18px calc(12px + env(safe-area-inset-bottom));background:rgba(255,255,255,.97);border-top:1px solid var(--line);display:flex;gap:10px;z-index:101}
+  .setup-actions .btn{flex:1;padding:13px;border-radius:13px;font-size:15px}
+  .setup-actions .primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+  .ritem{border:1px solid var(--line);border-radius:13px;padding:10px;margin-bottom:10px;background:#fff}
+  .ritem .r1{display:flex;gap:8px}
+  .ritem .r1 input:first-child{flex:1;min-width:0}
+  .ritem input,.ritem select{border:1px solid var(--line);border-radius:9px;padding:8px;font-size:13px;background:#fff;outline:none}
+  .ritem .r1 input[type=number]{width:92px;text-align:right}
+  .ritem .r2{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;align-items:center}
+  .ritem .r2 select{flex:1;min-width:70px;font-size:12.5px;padding:7px 4px}
+  .ritem .r2 .r-del{border:none;background:transparent;color:#d1d5db;font-size:17px;padding:2px 6px}
+  .add{display:block;width:100%;padding:11px;border:1px dashed #cbd2dc;border-radius:12px;background:transparent;color:var(--accent);font-size:14px;margin-top:4px}
+  .rec-total{font-size:12px;color:var(--muted);text-align:right;margin:6px 2px 10px}
+  .preview{background:#eef2ff;border:1px solid #c7d2fe;color:#3730a3;border-radius:12px;padding:11px 12px;font-size:13px;line-height:1.6}
+  .preview b{font-variant-numeric:tabular-nums}
+  @media(min-width:560px){.app{border-left:1px solid #e5e7eb;border-right:1px solid #e5e7eb}}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <section class="view" id="view-home">
+    <div class="top">
+      <div class="brand"><span class="logo">¥</span>轻记账</div>
+      <button class="today-btn" id="todayBtn">回到今天</button>
+    </div>
+
+    <div class="monthbar">
+      <button id="prevMonth" aria-label="上个月">‹</button>
+      <span id="monthLabel">—</span>
+      <button id="nextMonth" aria-label="下个月">›</button>
+    </div>
+
+    <div class="summary-card">
+      <div class="s-label">本月现金结余</div>
+      <div class="s-value" id="sBalance">¥0.00</div>
+      <div class="s-row">
+        <div><span>现金收入</span><b id="sIncome">¥0.00</b></div>
+        <div><span>现金支出</span><b id="sExpense">¥0.00</b></div>
+      </div>
+    </div>
+
+    <div class="fund-card">
+      <div><span>公积金收入</span><b id="fIncome">¥0</b></div>
+      <div><span>公积金支出</span><b id="fExpense">¥0</b></div>
+      <div><span>公积金结余</span><b id="fBalance">¥0</b></div>
+    </div>
+
+    <button class="quick-add" id="quickAdd">＋ 记一笔</button>
+
+    <details class="fixed">
+      <summary><span>固定支出（含公积金）· 本月 <b id="fixedTotal">¥0</b></span><span class="hint">展开</span></summary>
+      <div id="fixedList"></div>
+    </details>
+
+    <div class="card">
+      <div class="list-head"><h3>本月记录</h3><span id="countLabel">0 笔</span></div>
+      <div id="records"></div>
+      <div id="emptyState" class="empty">
+        <div class="emoji">📒</div>
+        <p>还没有记录，记下第一笔吧</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="view hidden" id="view-entry">
+    <div class="top">
+      <div class="brand">记一笔</div>
+      <span class="hint">收入 / 支出</span>
+    </div>
+
+    <div class="card">
+      <div class="seg" id="typeSeg">
+        <button data-type="expense" class="active">支出</button>
+        <button data-type="income">收入</button>
+      </div>
+      <div class="amount-row">
+        <span class="currency">¥</span>
+        <input id="amount" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0.00" autocomplete="off">
+      </div>
+      <div class="chips" id="catChips"></div>
+      <div class="meta-row">
+        <select id="account"></select>
+        <input id="date" type="date">
+      </div>
+      <input id="note" class="note-input" type="text" maxlength="30" placeholder="备注（可选）" autocomplete="off">
+      <button id="saveBtn" class="save" disabled>记一笔</button>
+    </div>
+
+    <div class="card">
+      <div class="list-head"><h3>最近记录</h3><span id="recentCount">0 笔</span></div>
+      <div id="recentList"></div>
+      <div id="recentEmpty" class="empty small hidden"><p>还没有记录</p></div>
+    </div>
+  </section>
+
+  <section class="view hidden" id="view-stats">
+    <div class="top">
+      <div class="brand">统计</div>
+      <span class="hint" id="periodHint"></span>
+    </div>
+    <div class="seg" id="periodSeg">
+      <button data-p="day">日</button>
+      <button data-p="week">周</button>
+      <button data-p="month" class="active">月</button>
+      <button data-p="year">年</button>
+    </div>
+
+    <div class="stat-cols">
+      <div class="stat-col">
+        <h3>现金</h3>
+        <div class="stat-row"><span>收入</span><b id="cIncome">¥0</b></div>
+        <div class="stat-row"><span>支出</span><b id="cExpense">¥0</b></div>
+        <div class="stat-row"><span>结余</span><b id="cBalance">¥0</b></div>
+      </div>
+      <div class="stat-col fund">
+        <h3>公积金</h3>
+        <div class="stat-row"><span>收入</span><b id="fIncomeS">¥0</b></div>
+        <div class="stat-row"><span>支出</span><b id="fExpenseS">¥0</b></div>
+        <div class="stat-row"><span>结余</span><b id="fBalanceS">¥0</b></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="list-head"><h3>全年支出（现金 + 公积金）</h3><span>1–12 月</span></div>
+      <div class="chart" id="chart"></div>
+    </div>
+
+    <div class="card">
+      <div class="list-head"><h3>现金支出分类</h3><span id="catSub"></span></div>
+      <div id="catList"></div>
+      <div id="catEmpty" class="empty small hidden"><p>这段时间没有现金支出</p></div>
+    </div>
+  </section>
+
+  <section class="view hidden" id="view-settings">
+    <div class="top"><div class="brand">设置</div></div>
+
+    <div class="card">
+      <h3 class="card-title">收入与社保</h3>
+      <p class="muted" id="profileSummary">—</p>
+      <button class="btn full" id="editProfile">修改工资 / 五险一金 / 个税扣除</button>
+    </div>
+
+    <div class="card">
+      <h3 class="card-title">固定支出</h3>
+      <p class="muted" id="recSummary">—</p>
+      <button class="btn full" id="editRecurring">管理固定支出</button>
+    </div>
+
+    <div class="card">
+      <h3 class="card-title">数据</h3>
+      <p class="muted">共 <b id="totalCount">0</b> 条流水，全部保存在本机。</p>
+      <div class="btn-row">
+        <button class="btn" id="exportBtn">导出</button>
+        <button class="btn" id="importBtn">导入</button>
+      </div>
+      <button class="btn danger full" id="clearBtn">清空所有记录</button>
+    </div>
+
+    <div class="card">
+      <h3 class="card-title">关于</h3>
+      <p class="muted">轻记账 v1.2.0 · 极简本地记账</p>
+      <p class="muted">不联网、不上传、无广告。工资、个税、公积金和流水都只保存在这台设备上。</p>
+      <p class="muted">开源项目 · MIT License</p>
+    </div>
+  </section>
+
+  <nav class="tabbar">
+    <button data-tab="home" class="active"><span class="ti">🏠</span>首页</button>
+    <button data-tab="entry"><span class="ti">✏️</span>记一笔</button>
+    <button data-tab="stats"><span class="ti">📊</span>统计</button>
+    <button data-tab="settings"><span class="ti">⚙️</span>设置</button>
+  </nav>
+</div>
+
+<div class="setup hidden" id="setup">
+  <div class="setup-inner">
+    <div class="setup-top">
+      <div><h2 id="setTitle">初始化设置</h2><p id="setSub">先填好收入和固定支出，后面会自动算</p></div>
+      <button class="x hidden" id="setClose">×</button>
+    </div>
+    <div class="dots"><i class="on"></i><i></i><i></i></div>
+
+    <div class="step" data-step="1">
+      <div class="field">
+        <label>税前月薪（元）</label>
+        <input id="pSalary" type="number" inputmode="decimal" placeholder="例如 20000">
+      </div>
+      <div class="field">
+        <label>年终奖（月数）</label>
+        <input id="pBonus" type="number" inputmode="decimal" step="0.5" placeholder="例如 1.5">
+      </div>
+      <div class="field">
+        <label>社保 / 公积金缴费基数上限（元/月）</label>
+        <input id="pCap" type="number" inputmode="decimal" placeholder="例如 37731">
+        <p class="tip">按 min(月薪, 上限) 缴纳；填 0 表示不封顶。上海 2026 年度上限为 37731。</p>
+      </div>
+      <div class="grid2">
+        <div class="field"><label>养老 %</label><input id="pPension" type="number" step="0.1" value="8"></div>
+        <div class="field"><label>医疗 %</label><input id="pMedical" type="number" step="0.1" value="2"></div>
+      </div>
+      <div class="grid2">
+        <div class="field"><label>失业 %</label><input id="pUnemp" type="number" step="0.1" value="0.5"></div>
+        <div class="field"><label>公积金基本 %</label><input id="pFundBasic" type="number" step="0.5" value="7"></div>
+      </div>
+      <div class="field">
+        <label>公积金补充 %</label>
+        <input id="pFundExtra" type="number" step="0.5" value="5">
+        <p class="tip">单位和个人同比例，双边都计入公积金账户。</p>
+      </div>
+      <div class="preview" id="pPreview"></div>
+    </div>
+
+    <div class="step hidden" data-step="2">
+      <label class="check"><input id="dLoan" type="checkbox"> 住房贷款利息（1000 / 月）</label>
+      <label class="check"><input id="dEdu" type="checkbox"> 继续教育（400 / 月）</label>
+      <div class="field"><label>子女教育（个数，2000 / 月 / 孩）</label><input id="dChildren" type="number" min="0" max="6" value="0"></div>
+      <div class="field"><label>3 岁以下婴幼儿（个数，2000 / 月 / 孩）</label><input id="dInfants" type="number" min="0" max="6" value="0"></div>
+      <div class="field">
+        <label>赡养老人</label>
+        <select id="dElderly">
+          <option value="0">无</option>
+          <option value="1500">非独生，分摊 1500 / 月</option>
+          <option value="3000">独生，3000 / 月</option>
+        </select>
+      </div>
+      <label class="check"><input id="dBonusSep" type="checkbox" checked> 年终奖单独计税（推荐）</label>
+    </div>
+
+    <div class="step hidden" data-step="3">
+      <p class="tip" style="margin:0 0 10px">把房贷/房租、物业、话费、保险等固定支出加进来，会自动计入首页和统计。选「公积金」的支出不计入现金。</p>
+      <button class="add" id="recAdd" style="margin:0 0 10px">＋ 添加固定支出</button>
+      <div id="recList"></div>
+      <button class="add" id="recAdd2">＋ 添加固定支出</button>
+      <div class="rec-total" id="recTotal"></div>
+    </div>
+  </div>
+
+  <div class="setup-actions">
+    <button class="btn hidden" id="setBack">上一步</button>
+    <button class="btn primary" id="setNext">下一步</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="modal hidden" id="modal">
+  <div class="modal-card">
+    <h3 id="modalTitle"></h3>
+    <p id="modalDesc"></p>
+    <textarea id="modalText" spellcheck="false"></textarea>
+    <div class="modal-actions">
+      <button id="modalCancel">取消</button>
+      <button id="modalOk" class="primary">确定</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  var KEY = 'litledger.v2';
+  var OLD = 'litledger.records.v1';
+
+  var CATS = {
+    expense: [['餐饮','🍜'],['交通','🚇'],['购物','🛍️'],['居住','🏠'],['娱乐','🎬'],['医疗','💊'],['教育','📚'],['人情','🎁'],['保险','🛡️'],['其他','📦']],
+    income: [['工资','💼'],['奖金','🎉'],['理财','📈'],['兼职','💪'],['其他','✨']]
+  };
+
+  var PROFILE = {
+    salary: 0,
+    bonusMonths: 0,
+    baseCap: 37731,
+    si: { pension: 8, medical: 2, unemployment: 0.5 },
+    fund: { basic: 7, extra: 5 },
+    deduct: { loan: false, children: 0, infants: 0, elderly: 0, education: false },
+    bonusSeparate: true
+  };
+
+  function clone(o){ return JSON.parse(JSON.stringify(o)); }
+  function $(id){ return document.getElementById(id); }
+  function pad(n){ return n < 10 ? '0' + n : '' + n; }
+  function ymd(d){ return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+  function parseDate(s){ var p = String(s).split('-'); return new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2])); }
+  function startOfMonth(d){ return new Date(d.getFullYear(), d.getMonth(), 1); }
+  function money(n){ n = Number(n) || 0; return '¥' + n.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  function shortMoney(n){ n = Number(n) || 0; return '¥' + n.toLocaleString('zh-CN', { maximumFractionDigits: 0 }); }
+  function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+
+  var S = load();
+  var viewMonth = startOfMonth(new Date());
+  var entryType = 'expense';
+  var cat = '餐饮';
+  var account = '现金';
+  var period = 'month';
+  var setupStep = 1;
+  var setupEditing = false;
+
+  function load(){
+    try{
+      var raw = localStorage.getItem(KEY);
+      if(raw) return normalize(JSON.parse(raw));
+      var old = localStorage.getItem(OLD);
+      if(old){
+        var arr = JSON.parse(old);
+        return normalize({ records: Array.isArray(arr) ? arr : [], profile: null, recurring: [], onboarded: false });
+      }
+    }catch(e){}
+    return normalize({});
+  }
+
+  function normalize(d){
+    d = d && typeof d === 'object' ? d : {};
+    d.profile = Object.assign(clone(PROFILE), d.profile || {});
+    d.profile.si = Object.assign(clone(PROFILE.si), (d.profile && d.profile.si) || {});
+    d.profile.fund = Object.assign(clone(PROFILE.fund), (d.profile && d.profile.fund) || {});
+    d.profile.deduct = Object.assign(clone(PROFILE.deduct), (d.profile && d.profile.deduct) || {});
+    d.recurring = Array.isArray(d.recurring) ? d.recurring : [];
+    d.records = Array.isArray(d.records) ? d.records : [];
+    d.onboarded = !!d.onboarded;
+    return d;
+  }
+
+  function save5(){
+    try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){}
+  }
+
+  /* ---------- salary engine ---------- */
+  var BRACKETS = [
+    [36000, 0.03, 0], [144000, 0.10, 2520], [300000, 0.20, 16920],
+    [420000, 0.25, 31920], [660000, 0.30, 52920], [960000, 0.35, 85920],
+    [Infinity, 0.45, 181920]
+  ];
+  var BONUS = [
+    [3000, 0.03, 0], [12000, 0.10, 210], [25000, 0.20, 1410],
+    [35000, 0.25, 2660], [55000, 0.30, 4410], [80000, 0.35, 7160],
+    [Infinity, 0.45, 15160]
+  ];
+
+  function taxOf(t){
+    if(t <= 0) return 0;
+    for(var i = 0; i < BRACKETS.length; i++){
+      if(t <= BRACKETS[i][0]) return t * BRACKETS[i][1] - BRACKETS[i][2];
+    }
+    return 0;
+  }
+
+  function monthlyDeductions(){
+    var d = S.profile.deduct;
+    return (d.loan ? 1000 : 0) + (Number(d.children) || 0) * 2000 + (Number(d.infants) || 0) * 2000 + (Number(d.elderly) || 0) + (d.education ? 400 : 0);
+  }
+
+  var _planKey = null, _plan = null;
+
+  function computePlan(p){
+    var base = p.baseCap > 0 ? Math.min(p.salary, p.baseCap) : p.salary;
+    var si = base * ((Number(p.si.pension) + Number(p.si.medical) + Number(p.si.unemployment)) / 100);
+    var fund = base * ((Number(p.fund.basic) + Number(p.fund.extra)) / 100);
+    var ded = 5000 + si + fund + monthlyDeductions();
+
+    var months = [];
+    var cumTaxable = 0, cumTax = 0;
+    for(var m = 1; m <= 12; m++){
+      var taxable = Math.max(0, p.salary - ded);
+      cumTaxable += taxable;
+      var t = taxOf(cumTaxable);
+      var wh = Math.max(0, t - cumTax);
+      cumTax = t;
+      months.push({ income: p.salary - si - fund - wh, tax: wh, fundIn: fund * 2 });
+    }
+
+    var bonus = { amount: 0, tax: 0, net: 0 };
+    if(p.salary > 0 && p.bonusMonths > 0){
+      bonus.amount = p.salary * p.bonusMonths;
+      if(p.bonusSeparate){
+        var per = bonus.amount / 12;
+        var rate = 0.45, qd = 15160;
+        for(var i = 0; i < BONUS.length; i++){
+          if(per <= BONUS[i][0]){ rate = BONUS[i][1]; qd = BONUS[i][2]; break; }
+        }
+        bonus.tax = Math.max(0, bonus.amount * rate - qd);
+      }else{
+        var annual = Math.max(0, (p.salary - ded) * 12);
+        bonus.tax = Math.max(0, taxOf(annual + bonus.amount) - taxOf(annual));
+      }
+      bonus.net = bonus.amount - bonus.tax;
+      months[11].income += bonus.net;
+      months[11].tax += bonus.tax;
+    }
+
+    return { base: base, si: si, fund: fund, ded: ded, months: months, bonus: bonus };
+  }
+
+  function plan(){
+    var key = JSON.stringify(S.profile);
+    if(_plan && key === _planKey) return _plan;
+    _planKey = key;
+    _plan = computePlan(S.profile);
+    return _plan;
+  }
+
+  /* ---------- recurring ---------- */
+  function itemAnnual(it){
+    var a = Number(it.amount) || 0;
+    switch(it.period){
+      case 'daily': return a * 365;
+      case 'workday': return a * 250;
+      case 'weekly': return a * 52;
+      case 'monthly': return a * 12;
+      case 'yearly': return a;
+      case 'once': return a;
+      default: return 0;
+    }
+  }
+
+  function itemMonthly(it, m){
+    if(it.period === 'once') return it.month === m ? (Number(it.amount) || 0) : 0;
+    if(it.period === 'monthly') return Number(it.amount) || 0;
+    return itemAnnual(it) / 12;
+  }
+
+  /* ---------- totals ---------- */
+  function totals(year, month){
+    var P = plan();
+    var mi = month - 1;
+    var cashIn = P.months[mi].income;
+    var fundIn = P.months[mi].fundIn;
+    var cashOut = 0, fundOut = 0;
+    var ym = year + '-' + pad(month);
+
+    S.recurring.forEach(function(it){
+      var v = itemMonthly(it, month);
+      if(it.account === 'fund') fundOut += v; else cashOut += v;
+    });
+
+    S.records.forEach(function(r){
+      if(String(r.date).slice(0, 7) !== ym) return;
+      var a = Number(r.amount) || 0;
+      if(r.account === 'fund'){
+        if(r.type === 'income') fundIn += a; else fundOut += a;
+      }else{
+        if(r.type === 'income') cashIn += a; else cashOut += a;
+      }
+    });
+
+    return { cashIn: cashIn, cashOut: cashOut, fundIn: fundIn, fundOut: fundOut };
+  }
+
+  function yearTotals(y){
+    var t = { cashIn: 0, cashOut: 0, fundIn: 0, fundOut: 0 };
+    for(var m = 1; m <= 12; m++){
+      var x = totals(y, m);
+      t.cashIn += x.cashIn; t.cashOut += x.cashOut;
+      t.fundIn += x.fundIn; t.fundOut += x.fundOut;
+    }
+    return t;
+  }
+
+  function scale(t, k){
+    return { cashIn: t.cashIn * k, cashOut: t.cashOut * k, fundIn: t.fundIn * k, fundOut: t.fundOut * k };
+  }
+
+  function cashCategories(y, m){
+    var map = {};
+    function add(name, v){ if(v > 0) map[name] = (map[name] || 0) + v; }
+    S.recurring.forEach(function(it){
+      if(it.account === 'fund') return;
+      if(m){ add(it.category, itemMonthly(it, m)); }
+      else { for(var mm = 1; mm <= 12; mm++) add(it.category, itemMonthly(it, mm)); }
+    });
+    S.records.forEach(function(r){
+      if(r.type !== 'expense' || r.account === 'fund') return;
+      if(String(r.date).slice(0, 4) !== String(y)) return;
+      if(m && String(r.date).slice(5, 7) !== pad(m)) return;
+      add(r.category, Number(r.amount) || 0);
+    });
+    return map;
+  }
+
+  /* ---------- toast/modal ---------- */
+  function toast(msg, actionLabel, actionFn, duration){
+    var t = $('toast');
+    t.innerHTML = '';
+    var span = document.createElement('span');
+    span.textContent = msg;
+    t.appendChild(span);
+    clearTimeout(t._timer);
+    if(actionLabel){
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = actionLabel;
+      btn.addEventListener('click', function(){
+        t.classList.remove('show');
+        if(actionFn) actionFn();
+      });
+      t.appendChild(btn);
+    }
+    t.classList.add('show');
+    t._timer = setTimeout(function(){ t.classList.remove('show'); }, duration || (actionLabel ? 4500 : 1600));
+  }
+
+  var modalCb = null;
+  function openModal(title, desc, text, okLabel, cb, readonly){
+    $('modalTitle').textContent = title;
+    $('modalDesc').textContent = desc;
+    $('modalText').style.display = '';
+    $('modalText').value = text || '';
+    $('modalText').readOnly = !!readonly;
+    $('modalOk').textContent = okLabel || '确定';
+    modalCb = cb || null;
+    $('modal').classList.remove('hidden');
+    setTimeout(function(){ if(readonly) $('modalText').select(); else $('modalText').focus(); }, 50);
+  }
+  function closeModal(){ $('modal').classList.add('hidden'); modalCb = null; }
+
+  function openConfirm(title, desc, okLabel, cb){
+    $('modalTitle').textContent = title;
+    $('modalDesc').textContent = desc;
+    $('modalText').style.display = 'none';
+    $('modalOk').textContent = okLabel || '确定';
+    modalCb = cb || null;
+    $('modal').classList.remove('hidden');
+  }
+
+  /* ---------- tabs ---------- */
+  function showTab(tab){
+    if(['home','entry','stats','settings'].indexOf(tab) < 0) tab = 'home';
+    ['home','entry','stats','settings'].forEach(function(t){ $('view-' + t).classList.toggle('hidden', t !== tab); });
+    var btns = document.querySelectorAll('.tabbar button');
+    for(var i = 0; i < btns.length; i++) btns[i].classList.toggle('active', btns[i].getAttribute('data-tab') === tab);
+    if(tab === 'stats') renderStats();
+    if(tab === 'settings') renderSettings();
+    if(tab === 'entry') renderEntry();
+    if(location.hash !== '#' + tab){
+      try{ history.replaceState(null, '', '#' + tab); }catch(e){ location.hash = tab; }
+    }
+    window.scrollTo(0, 0);
+  }
+
+  /* ---------- home ---------- */
+  function renderChips(){
+    var box = $('catChips');
+    box.innerHTML = '';
+    CATS[entryType].forEach(function(item){
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'chip' + (item[0] === cat ? ' active' : '');
+      b.innerHTML = '<span>' + item[1] + '</span>' + item[0];
+      b.addEventListener('click', function(){ cat = item[0]; renderChips(); });
+      box.appendChild(b);
+    });
+  }
+
+  function renderAccounts(){
+    var sel = $('account');
+    sel.innerHTML = '';
+    ['现金','公积金'].forEach(function(a){
+      var o = document.createElement('option');
+      o.value = a; o.textContent = a;
+      sel.appendChild(o);
+    });
+    sel.value = account;
+  }
+
+  function renderHome(){
+    var y = viewMonth.getFullYear(), m = viewMonth.getMonth() + 1;
+    $('monthLabel').textContent = y + '年' + m + '月';
+
+    var t = totals(y, m);
+    $('sIncome').textContent = money(t.cashIn);
+    $('sExpense').textContent = money(t.cashOut);
+    $('sBalance').textContent = money(t.cashIn - t.cashOut);
+
+    $('fIncome').textContent = shortMoney(t.fundIn);
+    $('fExpense').textContent = shortMoney(t.fundOut);
+    $('fBalance').textContent = shortMoney(t.fundIn - t.fundOut);
+
+    var fixedTotal = 0;
+    var fixedBox = $('fixedList');
+    fixedBox.innerHTML = '';
+    S.recurring.forEach(function(it){
+      var v = itemMonthly(it, m);
+      if(v <= 0) return;
+      fixedTotal += v;
+      var row = document.createElement('div');
+      row.className = 'fixed-row';
+      var n = document.createElement('div');
+      n.className = 'n';
+      n.textContent = it.name || '未命名';
+      var a = document.createElement('div');
+      a.className = 'a';
+      a.textContent = it.account === 'fund' ? '公积金' : '现金';
+      var val = document.createElement('div');
+      val.className = 'v';
+      val.textContent = shortMoney(v);
+      row.appendChild(n); row.appendChild(a); row.appendChild(val);
+      fixedBox.appendChild(row);
+    });
+    $('fixedTotal').textContent = shortMoney(fixedTotal);
+
+    var list = $('records');
+    list.innerHTML = '';
+    var monthRecords = S.records.filter(function(r){
+      var d = parseDate(r.date);
+      return d.getFullYear() === y && d.getMonth() === m - 1;
+    });
+
+    $('countLabel').textContent = monthRecords.length + ' 笔';
+    var empty = $('emptyState');
+    if(!monthRecords.length){ empty.classList.remove('hidden'); return; }
+    empty.classList.add('hidden');
+
+    var groups = {};
+    monthRecords.slice().sort(function(a, b){
+      if(a.date === b.date) return (b.createdAt || 0) - (a.createdAt || 0);
+      return a.date < b.date ? 1 : -1;
+    }).forEach(function(r){
+      if(!groups[r.date]) groups[r.date] = [];
+      groups[r.date].push(r);
+    });
+
+    Object.keys(groups).sort().reverse().forEach(function(date){
+      var g = document.createElement('div');
+      g.className = 'day-group';
+      var h = document.createElement('div');
+      h.className = 'day-head';
+      h.textContent = dateLabel(date);
+      g.appendChild(h);
+      groups[date].forEach(function(r){ g.appendChild(recordRow(r)); });
+      list.appendChild(g);
+    });
+  }
+
+  function renderEntry(){
+    var list = $('recentList');
+    list.innerHTML = '';
+    var arr = S.records.slice().sort(function(a, b){
+      if(a.date === b.date) return (b.createdAt || 0) - (a.createdAt || 0);
+      return a.date < b.date ? 1 : -1;
+    }).slice(0, 10);
+    $('recentCount').textContent = S.records.length + ' 笔';
+    if(!arr.length){
+      $('recentEmpty').classList.remove('hidden');
+      return;
+    }
+    $('recentEmpty').classList.add('hidden');
+    arr.forEach(function(r){ list.appendChild(recordRow(r, true)); });
+  }
+
+  function dateLabel(date){
+    var d = parseDate(date);
+    var today = new Date();
+    var t0 = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    var diff = Math.round((t0 - d) / 86400000);
+    var base = (d.getMonth() + 1) + '月' + d.getDate() + '日';
+    if(diff === 0) return base + ' · 今天';
+    if(diff === 1) return base + ' · 昨天';
+    return base + ' · 周' + '日一二三四五六'.charAt(d.getDay());
+  }
+
+  function deleteRecord(r){
+    var idx = S.records.findIndex(function(x){ return x.id === r.id; });
+    if(idx < 0) return;
+    var removed = S.records.splice(idx, 1)[0];
+    save5(); renderHome(); renderEntry();
+    toast('已删除', '撤销', function(){
+      S.records.splice(idx, 0, removed);
+      save5(); renderHome(); renderEntry();
+      toast('已恢复');
+    }, 5000);
+  }
+
+  function closeOtherRows(except){
+    var open = document.querySelectorAll('.rec.open');
+    for(var i = 0; i < open.length; i++){
+      if(open[i] !== except){
+        open[i].classList.remove('open');
+        open[i].style.transform = 'translateX(0)';
+      }
+    }
+  }
+
+  function recordRow(r, showDate){
+    var wrap = document.createElement('div');
+    wrap.className = 'rec-wrap';
+
+    var action = document.createElement('button');
+    action.type = 'button';
+    action.className = 'rec-action';
+    action.textContent = '删除';
+    action.addEventListener('click', function(){ deleteRecord(r); });
+    wrap.appendChild(action);
+
+    var row = document.createElement('div');
+    row.className = 'rec';
+    var ico = document.createElement('div');
+    ico.className = 'ico';
+    ico.textContent = findEmoji(r.category);
+    row.appendChild(ico);
+    var main = document.createElement('div');
+    main.className = 'main';
+    var t = document.createElement('div');
+    t.className = 't';
+    t.textContent = r.note ? r.note : r.category;
+    var s = document.createElement('div');
+    s.className = 's';
+    s.textContent = r.category + ' · ' + (r.account === 'fund' ? '公积金' : '现金') + (showDate ? ' · ' + r.date.slice(5) : '');
+    main.appendChild(t); main.appendChild(s);
+    row.appendChild(main);
+    var amt = document.createElement('div');
+    amt.className = 'amt' + (r.type === 'income' ? ' inc' : '');
+    amt.textContent = (r.type === 'income' ? '+' : '-') + shortMoney(r.amount).replace('¥','');
+    row.appendChild(amt);
+    var del = document.createElement('button');
+    del.className = 'del'; del.type = 'button'; del.textContent = '×';
+    del.addEventListener('click', function(){ deleteRecord(r); });
+    row.appendChild(del);
+
+    var startX = 0, startY = 0, dx = 0, dragging = false;
+    row.addEventListener('touchstart', function(e){
+      if(e.touches.length !== 1) return;
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+      dx = 0; dragging = false;
+      row.style.transition = 'none';
+    }, { passive: true });
+
+    row.addEventListener('touchmove', function(e){
+      if(e.touches.length !== 1) return;
+      var mx = e.touches[0].clientX - startX;
+      var my = e.touches[0].clientY - startY;
+      if(!dragging){
+        if(Math.abs(mx) > Math.abs(my) && Math.abs(mx) > 8) dragging = true;
+        else if(Math.abs(my) > 8) return;
+      }
+      if(!dragging) return;
+      if(mx > 0) mx = 0;
+      if(mx < -88) mx = -88;
+      dx = mx;
+      row.style.transform = 'translateX(' + mx + 'px)';
+      if(e.cancelable) e.preventDefault();
+    }, { passive: false });
+
+    row.addEventListener('touchend', function(){
+      row.style.transition = 'transform .2s';
+      if(dx < -40){
+        row.style.transform = 'translateX(-76px)';
+        row.classList.add('open');
+        closeOtherRows(row);
+      }else{
+        row.style.transform = 'translateX(0)';
+        row.classList.remove('open');
+      }
+      dragging = false;
+    });
+
+    row.addEventListener('click', function(){
+      if(row.classList.contains('open')){
+        row.classList.remove('open');
+        row.style.transform = 'translateX(0)';
+      }
+    });
+
+    wrap.appendChild(row);
+    return wrap;
+  }
+
+  function findEmoji(name){
+    var all = CATS.expense.concat(CATS.income);
+    for(var i = 0; i < all.length; i++) if(all[i][0] === name) return all[i][1];
+    return '📦';
+  }
+
+  function updateSaveState(){
+    var v = parseFloat($('amount').value);
+    $('saveBtn').disabled = !(v > 0);
+  }
+
+  function saveRecord(){
+    var v = parseFloat($('amount').value);
+    if(!(v > 0)) return;
+    var date = $('date').value || ymd(new Date());
+    S.records.push({
+      id: uid(), type: entryType, amount: Math.round(v * 100) / 100,
+      category: cat, account: account, date: date,
+      note: $('note').value.trim(), createdAt: Date.now()
+    });
+    save5();
+    viewMonth = startOfMonth(parseDate(date));
+    $('amount').value = ''; $('note').value = '';
+    updateSaveState(); renderHome(); renderEntry(); toast('已记一笔'); $('amount').focus();
+  }
+
+  /* ---------- stats ---------- */
+  function renderStats(){
+    var now = new Date();
+    var y = now.getFullYear(), m = now.getMonth() + 1;
+    var yt = yearTotals(y);
+    var t, hint;
+
+    if(period === 'month'){ t = totals(y, m); hint = '本月实际'; }
+    else if(period === 'year'){ t = yt; hint = '全年口径'; }
+    else if(period === 'day'){ t = scale(yt, 1 / 365); hint = '按年折算的日均'; }
+    else { t = scale(yt, 1 / 52); hint = '按年折算的周均'; }
+
+    $('periodHint').textContent = hint;
+    $('cIncome').textContent = shortMoney(t.cashIn);
+    $('cExpense').textContent = shortMoney(t.cashOut);
+    $('cBalance').textContent = shortMoney(t.cashIn - t.cashOut);
+    $('fIncomeS').textContent = shortMoney(t.fundIn);
+    $('fExpenseS').textContent = shortMoney(t.fundOut);
+    $('fBalanceS').textContent = shortMoney(t.fundIn - t.fundOut);
+
+    renderChart(y);
+
+    var map, scaleK = 1;
+    if(period === 'month'){ map = cashCategories(y, m); $('catSub').textContent = '本月'; }
+    else if(period === 'year'){ map = cashCategories(y, null); $('catSub').textContent = '本年'; }
+    else if(period === 'day'){ map = cashCategories(y, null); scaleK = 1 / 365; $('catSub').textContent = '日均'; }
+    else { map = cashCategories(y, null); scaleK = 1 / 52; $('catSub').textContent = '周均'; }
+
+    if(scaleK !== 1){
+      Object.keys(map).forEach(function(k){ map[k] *= scaleK; });
+    }
+    drawCategories(map);
+  }
+
+  function renderChart(y){
+    var box = $('chart');
+    box.innerHTML = '';
+    var data = [];
+    var max = 1;
+    for(var m = 1; m <= 12; m++){
+      var t = totals(y, m);
+      data.push({ c: t.cashOut, f: t.fundOut });
+      if(t.cashOut + t.fundOut > max) max = t.cashOut + t.fundOut;
+    }
+    for(var i = 0; i < 12; i++){
+      var col = document.createElement('div');
+      col.className = 'col';
+      var slot = document.createElement('div');
+      slot.className = 'slot';
+      var total = data[i].c + data[i].f;
+      var h = Math.max(2, total / max * 128);
+      var stack = document.createElement('div');
+      stack.className = 'stack';
+      stack.style.height = h + 'px';
+      stack.title = (i + 1) + '月 现金 ' + shortMoney(data[i].c) + ' / 公积金 ' + shortMoney(data[i].f);
+      var fc = document.createElement('div');
+      fc.className = 'part c';
+      fc.style.height = (total > 0 ? data[i].c / total * h : 0) + 'px';
+      var ff = document.createElement('div');
+      ff.className = 'part f';
+      ff.style.height = (total > 0 ? data[i].f / total * h : 0) + 'px';
+      stack.appendChild(fc); stack.appendChild(ff);
+      slot.appendChild(stack);
+      var lbl = document.createElement('div');
+      lbl.className = 'lbl';
+      lbl.textContent = i + 1;
+      col.appendChild(slot); col.appendChild(lbl);
+      box.appendChild(col);
+    }
+  }
+
+  function drawCategories(map){
+    var box = $('catList');
+    box.innerHTML = '';
+    var keys = Object.keys(map).sort(function(a, b){ return map[b] - map[a]; });
+    if(!keys.length){ $('catEmpty').classList.remove('hidden'); return; }
+    $('catEmpty').classList.add('hidden');
+    var total = keys.reduce(function(s, k){ return s + map[k]; }, 0);
+    keys.forEach(function(k){
+      var val = map[k];
+      var pct = total > 0 ? val / total * 100 : 0;
+      var row = document.createElement('div');
+      row.className = 'catrow';
+      var name = document.createElement('div');
+      name.className = 'name';
+      name.textContent = findEmoji(k) + ' ' + k;
+      var track = document.createElement('div');
+      track.className = 'track';
+      var fill = document.createElement('div');
+      fill.className = 'fill';
+      fill.style.width = Math.max(2, pct) + '%';
+      track.appendChild(fill);
+      var v = document.createElement('div');
+      v.className = 'val';
+      v.textContent = shortMoney(val) + ' · ' + pct.toFixed(0) + '%';
+      row.appendChild(name); row.appendChild(track); row.appendChild(v);
+      box.appendChild(row);
+    });
+  }
+
+  /* ---------- settings ---------- */
+  function renderSettings(){
+    var p = S.profile;
+    $('profileSummary').textContent = '月薪 ' + shortMoney(p.salary) + ' · 年终奖 ' + (p.bonusMonths || 0) + ' 个月 · 公积金 ' + ((Number(p.fund.basic) || 0) + (Number(p.fund.extra) || 0)) + '%';
+    var annual = S.recurring.reduce(function(s, it){ return s + itemAnnual(it); }, 0);
+    $('recSummary').textContent = S.recurring.length + ' 项固定支出 · 全年 ' + shortMoney(annual);
+    $('totalCount').textContent = S.records.length;
+  }
+
+  /* ---------- setup wizard ---------- */
+  function openSetup(step, editing){
+    setupEditing = !!editing;
+    setupStep = step || 1;
+    $('setClose').classList.toggle('hidden', !editing);
+    fillProfileInputs();
+    renderRecEditor();
+    $('setup').classList.remove('hidden');
+    showStep();
+    window.scrollTo(0, 0);
+  }
+
+  function setupPreview(){
+    var salary = parseFloat($('pSalary').value) || 0;
+    var el = $('pPreview');
+    if(!salary){ el.textContent = ''; return; }
+    var p = clone(S.profile);
+    p.salary = salary;
+    p.bonusMonths = parseFloat($('pBonus').value) || 0;
+    p.baseCap = parseFloat($('pCap').value) || 0;
+    p.si.pension = parseFloat($('pPension').value) || 0;
+    p.si.medical = parseFloat($('pMedical').value) || 0;
+    p.si.unemployment = parseFloat($('pUnemp').value) || 0;
+    p.fund.basic = parseFloat($('pFundBasic').value) || 0;
+    p.fund.extra = parseFloat($('pFundExtra').value) || 0;
+    var P = computePlan(p);
+    el.innerHTML = '预计首月到手 <b>' + shortMoney(P.months[0].income) + '</b> · 公积金双边 <b>' + shortMoney(P.months[0].fundIn) + '</b><br><span style="font-size:11px;color:#6366f1">未含下一步的专项附加扣除</span>';
+  }
+
+  function bindPreview(){
+    ['pSalary','pBonus','pCap','pPension','pMedical','pUnemp','pFundBasic','pFundExtra'].forEach(function(id){
+      $(id).addEventListener('input', setupPreview);
+    });
+  }
+
+  function fillProfileInputs(){
+    var p = S.profile;
+    $('pSalary').value = p.salary || '';
+    $('pBonus').value = p.bonusMonths || '';
+    $('pCap').value = p.baseCap || 0;
+    $('pPension').value = p.si.pension;
+    $('pMedical').value = p.si.medical;
+    $('pUnemp').value = p.si.unemployment;
+    $('pFundBasic').value = p.fund.basic;
+    $('pFundExtra').value = p.fund.extra;
+    $('dLoan').checked = !!p.deduct.loan;
+    $('dEdu').checked = !!p.deduct.education;
+    $('dChildren').value = p.deduct.children || 0;
+    $('dInfants').value = p.deduct.infants || 0;
+    $('dElderly').value = String(p.deduct.elderly || 0);
+    $('dBonusSep').checked = !!p.bonusSeparate;
+  }
+
+  function readProfileInputs(){
+    var p = S.profile;
+    p.salary = parseFloat($('pSalary').value) || 0;
+    p.bonusMonths = parseFloat($('pBonus').value) || 0;
+    p.baseCap = parseFloat($('pCap').value) || 0;
+    p.si.pension = parseFloat($('pPension').value) || 0;
+    p.si.medical = parseFloat($('pMedical').value) || 0;
+    p.si.unemployment = parseFloat($('pUnemp').value) || 0;
+    p.fund.basic = parseFloat($('pFundBasic').value) || 0;
+    p.fund.extra = parseFloat($('pFundExtra').value) || 0;
+  }
+
+  function readDeductInputs(){
+    var p = S.profile;
+    p.deduct.loan = $('dLoan').checked;
+    p.deduct.education = $('dEdu').checked;
+    p.deduct.children = Math.max(0, parseInt($('dChildren').value, 10) || 0);
+    p.deduct.infants = Math.max(0, parseInt($('dInfants').value, 10) || 0);
+    p.deduct.elderly = parseInt($('dElderly').value, 10) || 0;
+    p.bonusSeparate = $('dBonusSep').checked;
+  }
+
+  function showStep(){
+    document.querySelectorAll('.step').forEach(function(el){
+      el.classList.toggle('hidden', Number(el.getAttribute('data-step')) !== setupStep);
+    });
+    var dots = document.querySelectorAll('.dots i');
+    for(var i = 0; i < dots.length; i++) dots[i].classList.toggle('on', i < setupStep);
+    $('setBack').classList.toggle('hidden', setupStep === 1);
+    $('setNext').textContent = setupStep === 3 ? '完成' : '下一步';
+    var titles = [
+      ['收入与五险一金', '先填工资，后面自动算个税和公积金'],
+      ['个税专项扣除', '有就勾上，没有就跳过'],
+      ['固定支出', '把每月/每年的硬支出加进来']
+    ];
+    $('setTitle').textContent = titles[setupStep - 1][0];
+    $('setSub').textContent = titles[setupStep - 1][1];
+    if(setupStep === 1) setupPreview();
+    window.scrollTo(0, 0);
+  }
+
+  function setupNext(){
+    if(setupStep === 1){
+      var salary = parseFloat($('pSalary').value) || 0;
+      if(salary <= 0){ toast('请填写税前月薪'); $('pSalary').focus(); return; }
+      readProfileInputs();
+    }else if(setupStep === 2){
+      readDeductInputs();
+    }else{
+      finishSetup();
+      return;
+    }
+    setupStep++;
+    showStep();
+  }
+
+  function finishSetup(){
+    save5();
+    S.onboarded = true;
+    save5();
+    $('setup').classList.add('hidden');
+    renderHome();
+    renderSettings();
+    toast('设置已保存');
+  }
+
+  function renderRecEditor(){
+    var box = $('recList');
+    box.innerHTML = '';
+    S.recurring.forEach(function(it){ box.appendChild(recRow(it)); });
+    var annual = S.recurring.reduce(function(s, x){ return s + itemAnnual(x); }, 0);
+    $('recTotal').textContent = S.recurring.length + ' 项 · 全年合计 ' + shortMoney(annual);
+  }
+
+  function recRow(it){
+    var div = document.createElement('div');
+    div.className = 'ritem';
+
+    var r1 = document.createElement('div');
+    r1.className = 'r1';
+    var name = document.createElement('input');
+    name.type = 'text'; name.placeholder = '名称，如房租 / 物业 / 车险'; name.value = it.name || '';
+    name.addEventListener('input', function(){ it.name = name.value; save5(); });
+    var amount = document.createElement('input');
+    amount.type = 'number'; amount.min = '0'; amount.step = '1'; amount.placeholder = '金额'; amount.value = it.amount || '';
+    amount.addEventListener('input', function(){
+      it.amount = parseFloat(amount.value) || 0;
+      save5();
+      var annual = S.recurring.reduce(function(s, x){ return s + itemAnnual(x); }, 0);
+      $('recTotal').textContent = S.recurring.length + ' 项 · 全年合计 ' + shortMoney(annual);
+    });
+    r1.appendChild(name); r1.appendChild(amount);
+
+    var r2 = document.createElement('div');
+    r2.className = 'r2';
+    var periodSel = document.createElement('select');
+    [['daily','每天'],['workday','每工作日'],['weekly','每周'],['monthly','每月'],['yearly','每年'],['once','指定月份']].forEach(function(p){
+      var o = document.createElement('option'); o.value = p[0]; o.textContent = p[1]; periodSel.appendChild(o);
+    });
+    periodSel.value = it.period || 'monthly';
+
+    var monthSel = document.createElement('select');
+    for(var m = 1; m <= 12; m++){ var o = document.createElement('option'); o.value = m; o.textContent = m + '月'; monthSel.appendChild(o); }
+    monthSel.value = it.month || 1;
+    monthSel.style.display = (it.period === 'once') ? '' : 'none';
+
+    var accSel = document.createElement('select');
+    [['cash','现金'],['fund','公积金']].forEach(function(p){ var o = document.createElement('option'); o.value = p[0]; o.textContent = p[1]; accSel.appendChild(o); });
+    accSel.value = it.account || 'cash';
+
+    var catSel = document.createElement('select');
+    CATS.expense.forEach(function(c){ var o = document.createElement('option'); o.value = c[0]; o.textContent = c[1] + c[0]; catSel.appendChild(o); });
+    catSel.value = it.category || '居住';
+
+    periodSel.addEventListener('change', function(){
+      it.period = periodSel.value;
+      monthSel.style.display = (it.period === 'once') ? '' : 'none';
+      save5();
+    });
+    monthSel.addEventListener('change', function(){ it.month = parseInt(monthSel.value, 10); save5(); });
+    accSel.addEventListener('change', function(){ it.account = accSel.value; save5(); });
+    catSel.addEventListener('change', function(){ it.category = catSel.value; save5(); });
+
+    var del = document.createElement('button');
+    del.type = 'button'; del.className = 'r-del'; del.textContent = '×';
+    del.addEventListener('click', function(){
+      var i = S.recurring.indexOf(it);
+      if(i > -1) S.recurring.splice(i, 1);
+      save5(); renderRecEditor();
+    });
+
+    r2.appendChild(periodSel); r2.appendChild(monthSel); r2.appendChild(accSel); r2.appendChild(catSel); r2.appendChild(del);
+
+    div.appendChild(r1); div.appendChild(r2);
+    return div;
+  }
+
+  /* ---------- data ---------- */
+  function exportData(){
+    openModal('导出数据', '复制下面的 JSON 保存，导入时会一并恢复工资设置和固定支出。', JSON.stringify({
+      app: 'LiteLedger', version: 2, exportedAt: new Date().toISOString(),
+      profile: S.profile, recurring: S.recurring, records: S.records
+    }, null, 2), '完成', null, true);
+  }
+
+  function importData(){
+    openModal('导入数据', '粘贴之前导出的 JSON。导入后会覆盖现有设置和记录。', '', '导入', function(text){
+      try{
+        var data = JSON.parse(text);
+        if(!data || typeof data !== 'object') throw new Error('格式不正确');
+        var next = normalize({
+          profile: data.profile || null,
+          recurring: Array.isArray(data.recurring) ? data.recurring : [],
+          records: Array.isArray(data.records) ? data.records : (Array.isArray(data) ? data : []),
+          onboarded: !!data.onboarded
+        });
+        openConfirm('覆盖当前数据？', '将导入 ' + next.records.length + ' 条记录，并覆盖现有工资设置和固定支出。', '导入', function(){
+          S = next;
+          save5();
+          closeModal();
+          renderHome(); renderEntry(); renderSettings();
+          toast('已导入 ' + next.records.length + ' 条');
+        });
+      }catch(err){ toast('导入失败：' + err.message); }
+    });
+  }
+
+  function clearData(){
+    if(!S.records.length){ toast('还没有记录'); return; }
+    openConfirm('清空所有记录', '将删除全部 ' + S.records.length + ' 条记录，工资设置和固定支出会保留。', '清空', function(){
+      S.records = [];
+      save5(); closeModal(); renderHome(); renderEntry(); renderSettings(); toast('已清空');
+    });
+  }
+
+  /* ---------- events ---------- */
+  $('amount').addEventListener('input', updateSaveState);
+  $('saveBtn').addEventListener('click', saveRecord);
+
+  $('typeSeg').addEventListener('click', function(e){
+    var btn = e.target.closest('button');
+    if(!btn) return;
+    entryType = btn.getAttribute('data-type');
+    var all = this.querySelectorAll('button');
+    for(var i = 0; i < all.length; i++) all[i].classList.toggle('active', all[i] === btn);
+    cat = CATS[entryType][0][0];
+    renderChips();
+  });
+
+  $('account').addEventListener('change', function(){ account = this.value; });
+
+  $('prevMonth').addEventListener('click', function(){
+    viewMonth = new Date(viewMonth.getFullYear(), viewMonth.getMonth() - 1, 1);
+    renderHome();
+  });
+  $('nextMonth').addEventListener('click', function(){
+    viewMonth = new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 1);
+    renderHome();
+  });
+  $('quickAdd').addEventListener('click', function(){
+    showTab('entry');
+    setTimeout(function(){ $('amount').focus(); }, 80);
+  });
+
+  $('todayBtn').addEventListener('click', function(){
+    viewMonth = startOfMonth(new Date());
+    $('date').value = ymd(new Date());
+    renderHome();
+  });
+
+  $('periodSeg').addEventListener('click', function(e){
+    var btn = e.target.closest('button');
+    if(!btn) return;
+    period = btn.getAttribute('data-p');
+    var all = this.querySelectorAll('button');
+    for(var i = 0; i < all.length; i++) all[i].classList.toggle('active', all[i] === btn);
+    renderStats();
+  });
+
+  document.querySelector('.tabbar').addEventListener('click', function(e){
+    var btn = e.target.closest('button');
+    if(!btn) return;
+    showTab(btn.getAttribute('data-tab'));
+  });
+
+  window.addEventListener('hashchange', function(){ showTab((location.hash || '#home').replace('#', '')); });
+
+  $('exportBtn').addEventListener('click', exportData);
+  $('importBtn').addEventListener('click', importData);
+  $('clearBtn').addEventListener('click', clearData);
+  $('modalCancel').addEventListener('click', closeModal);
+  $('modalOk').addEventListener('click', function(){ if(modalCb) modalCb($('modalText').value); else closeModal(); });
+  $('modal').addEventListener('click', function(e){ if(e.target === this) closeModal(); });
+
+  $('setNext').addEventListener('click', setupNext);
+  $('setBack').addEventListener('click', function(){ if(setupStep > 1){ setupStep--; showStep(); } });
+  $('setClose').addEventListener('click', function(){ $('setup').classList.add('hidden'); });
+  $('editProfile').addEventListener('click', function(){ openSetup(1, true); });
+  $('editRecurring').addEventListener('click', function(){ openSetup(3, true); });
+  function addRecurring(){
+    S.recurring.push({ id: uid(), name: '', amount: 0, period: 'monthly', month: 1, account: 'cash', category: '居住' });
+    save5(); renderRecEditor();
+  }
+  $('recAdd').addEventListener('click', addRecurring);
+  $('recAdd2').addEventListener('click', addRecurring);
+
+  /* ---------- init ---------- */
+  $('date').value = ymd(new Date());
+  bindPreview();
+  renderAccounts();
+  renderChips();
+  renderHome();
+  renderEntry();
+  renderSettings();
+  showTab((location.hash || '#home').replace('#', ''));
+
+  if(!S.onboarded){
+    openSetup(1, false);
+  }
+
+  if('serviceWorker' in navigator && location.protocol.indexOf('http') === 0){
+    navigator.serviceWorker.register('sw.js').catch(function(){});
+  }
+})();
+</script>
+</body>
+</html>

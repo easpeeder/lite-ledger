@@ -22,7 +22,7 @@
 - **自动算工资**：按累计预扣法算每个月个税和税后到手，年终奖可选单独计税
 - **公积金独立账户**：单位和个人双边缴存自动计入公积金收入，房贷等公积金支出单独统计，不混进现金
 - **固定支出**：支持每天 / 每工作日 / 每周 / 每月 / 每年 / 指定月份，数量不限；添加入口固定在列表上方，自动摊到首页和统计
-- **独立的「记一笔」页面**：底部导航一级入口，金额、支出/收入、分类、账户（现金 / 公积金）、日期、备注；下方「最近记录」可直接删除
+- **独立的「记一笔」页面**：底部导航一级入口，金额、支出/收入、分类、账户（现金 / 公积金）、日期、备注；下方「最近记录」支持左滑删除，删除后可撤销
 - **首页自动同步**：记一笔保存后，首页本月记录、现金/公积金结余立即更新
 - **统计**：日 / 周 / 月 / 年视图，现金与公积金分别显示收入、支出、结余，全年支出柱状图和分类占比
 - **本地存储**：数据存在设备本地（localStorage / WebView），不上传任何服务器
@@ -32,11 +32,23 @@
 ## 下载安装
 
 1. 打开本仓库的 [Releases](../../releases) 页面，下载最新的 `LiteLedger.apk`
-   - 也可以直接下载仓库里的 [dist/LiteLedger-1.1.1.apk](dist/LiteLedger-1.1.1.apk)
+   - 也可以直接下载仓库里的 [dist/LiteLedger-1.2.0.apk](dist/LiteLedger-1.2.0.apk)
 2. 在手机上点击安装；如提示，请允许「安装未知来源应用」
 3. 打开即可使用，无需注册
 
 > 在线试用网页版：<https://easpeeder.github.io/lite-ledger/> ，也可以在手机浏览器里「添加到主屏幕」。
+
+## iOS 版
+
+iOS 版是同一套前端的 SwiftUI + WKWebView 壳，支持 iPhone 竖屏、iOS 18 及以上，不做旧系统和小屏机型适配。
+
+三种用法：
+
+1. **Xcode 自签（推荐）**：`open ios/LiteLedger.xcodeproj`，在 Signing & Capabilities 选择自己的 Apple ID Team，连上 iPhone 直接运行（免费账号 7 天有效，付费开发者账号 1 年）
+2. **未签名 IPA**：从 Releases 下载 `LiteLedger-unsigned.ipa`，用 Sideloadly / AltStore 等工具用自己的 Apple ID 签名安装
+3. **不装 App**：Safari 打开 <https://easpeeder.github.io/lite-ledger/> → 分享 → 添加到主屏幕，功能一致、无需签名
+
+> 上架 App Store / TestFlight 需要 Apple Developer 账号（$99/年）和签名证书，本仓库不包含。
 
 ## 从源码构建
 
@@ -62,9 +74,28 @@ cd android
 
 用 Android Studio 打开 `android/` 目录也可以直接构建。
 
+### iOS
+
+需要 Xcode（建议 16 及以上）。
+
+```bash
+bash scripts/sync-ios.sh              # 把 app/index.html 同步进 iOS 工程
+open ios/LiteLedger.xcodeproj         # 选好 Team 后连 iPhone 运行
+```
+
+命令行构建模拟器包：
+
+```bash
+cd ios
+xcodebuild -project LiteLedger.xcodeproj -scheme LiteLedger \
+  -sdk iphonesimulator -configuration Release CODE_SIGNING_ALLOWED=NO build
+```
+
+工程由 [XcodeGen](https://github.com/yonaskolb/XcodeGen) 生成，已提交 `LiteLedger.xcodeproj`；修改 `ios/project.yml` 后执行 `xcodegen generate` 重新生成。
+
 ### 用 GitHub Actions 自动打包
 
-push 到 `main` 后，Actions 会自动构建 APK 并上传为构建产物；打 tag（如 `v1.0.0`）会自动创建 Release 并附上 APK。
+push 到 `main` 后，Actions 会自动构建 Android APK、iOS 未签名 IPA 和模拟器包并上传为构建产物；打 tag（如 `v1.2.0`）会自动创建 Release 并附上全部产物。
 
 ## 签名（发布正式版时）
 
@@ -122,8 +153,13 @@ app/                网页版（也是 APK 内的前端资源）
   icon-512.png
 android/            Android WebView 壳工程
   app/src/main/assets/   构建前由 scripts/sync-web.sh 同步
-.github/workflows/  自动构建 APK / 部署网页版
+ios/                iOS 工程（SwiftUI + WKWebView）
+  LiteLedger.xcodeproj
+  project.yml
+  LiteLedger/       App.swift / ContentView.swift / Info.plist / index.html
+.github/workflows/  自动构建 APK / iOS / 部署网页版
 scripts/sync-web.sh
+scripts/sync-ios.sh
 docs/screenshots/
 ```
 
@@ -144,6 +180,14 @@ docs/screenshots/
 - 分类与账户：`app/index.html` 中的 `CATS` 与 `ACCOUNTS`
 
 ## 更新日志
+
+### v1.2.0（2026-11-11）
+
+- 新增 iOS 版（SwiftUI + WKWebView），与 Android / 网页共用同一套前端；iOS 18+、iPhone 竖屏
+- 记录支持左滑露出「删除」，删除后可点「撤销」恢复；右侧 × 同样即时删除
+- 清空数据、导入覆盖改用应用内确认弹层，不再依赖 WebView 的 `confirm`（Android / iOS 上原本会被拦截，导致删不掉）
+- GitHub Actions 新增 iOS 构建：未签名 IPA + 模拟器 app
+- 版本统一为 1.2.0
 
 ### v1.1.1（2026-11-11）
 

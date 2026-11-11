@@ -1,0 +1,67 @@
+name: Build iOS
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show Xcode version
+        run: xcodebuild -version
+
+      - name: Sync web assets
+        run: bash scripts/sync-ios.sh
+
+      - name: Build simulator app
+        run: |
+          cd ios
+          xcodebuild -project LiteLedger.xcodeproj \
+            -scheme LiteLedger \
+            -configuration Release \
+            -sdk iphonesimulator \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+          cd build/Build/Products/Release-iphonesimulator
+          zip -qry "$GITHUB_WORKSPACE/ios/LiteLedger-simulator.app.zip" LiteLedger.app
+
+      - name: Build unsigned device app
+        run: |
+          cd ios
+          xcodebuild -project LiteLedger.xcodeproj \
+            -scheme LiteLedger \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build-device \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            build
+          mkdir -p Payload
+          cp -R build-device/Build/Products/Release-iphoneos/LiteLedger.app Payload/
+          zip -qry LiteLedger-unsigned.ipa Payload
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: LiteLedger-iOS
+          path: |
+            ios/LiteLedger-unsigned.ipa
+            ios/LiteLedger-simulator.app.zip
+
+      - name: Attach to release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ios/LiteLedger-unsigned.ipa
+            ios/LiteLedger-simulator.app.zip

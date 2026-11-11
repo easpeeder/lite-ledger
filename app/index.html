@@ -61,8 +61,10 @@
   .list-head span{font-size:12px;color:#9ca3af}
   .day-group{margin-top:8px}
   .day-head{font-size:11px;color:#9ca3af;margin:10px 2px 4px}
-  .rec{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f4f5f7}
-  .rec:last-child{border-bottom:none}
+  .rec-wrap{position:relative;overflow:hidden;border-bottom:1px solid #f4f5f7}
+  .rec-wrap:last-child{border-bottom:none}
+  .rec-action{position:absolute;top:0;right:0;bottom:0;width:76px;border:none;background:var(--red);color:#fff;font-size:13px;font-weight:600;letter-spacing:.5px}
+  .rec{display:flex;align-items:center;gap:10px;padding:8px 0;background:#fff;position:relative;z-index:1;touch-action:pan-y;transition:transform .2s}
   .rec .ico{width:36px;height:36px;border-radius:11px;background:#f3f4f6;display:grid;place-items:center;font-size:17px;flex:none}
   .rec .main{flex:1;min-width:0}
   .rec .t{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -114,7 +116,8 @@
   .tabbar .ti{font-size:19px;line-height:1}
   .tabbar button.active{color:var(--accent);font-weight:600}
   .toast{position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(8px);background:rgba(17,24,39,.92);color:#fff;padding:10px 16px;border-radius:999px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .18s,transform .18s;z-index:200;white-space:nowrap}
-  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);pointer-events:auto}
+  .toast button{border:none;background:transparent;color:#c7d2fe;font-size:13px;font-weight:700;padding:0 0 0 4px}
   .modal{position:fixed;inset:0;background:rgba(17,24,39,.45);display:flex;align-items:flex-end;justify-content:center;z-index:150}
   .modal-card{background:#fff;width:100%;max-width:520px;border-radius:20px 20px 0 0;padding:20px 18px calc(20px + env(safe-area-inset-bottom));max-height:88vh;overflow:auto}
   .modal-card h3{margin:0 0 6px;font-size:16px}
@@ -303,7 +306,7 @@
 
     <div class="card">
       <h3 class="card-title">关于</h3>
-      <p class="muted">轻记账 v1.1.1 · 极简本地记账</p>
+      <p class="muted">轻记账 v1.2.0 · 极简本地记账</p>
       <p class="muted">不联网、不上传、无广告。工资、个税、公积金和流水都只保存在这台设备上。</p>
       <p class="muted">开源项目 · MIT License</p>
     </div>
@@ -623,18 +626,32 @@
   }
 
   /* ---------- toast/modal ---------- */
-  function toast(msg){
+  function toast(msg, actionLabel, actionFn, duration){
     var t = $('toast');
-    t.textContent = msg;
-    t.classList.add('show');
+    t.innerHTML = '';
+    var span = document.createElement('span');
+    span.textContent = msg;
+    t.appendChild(span);
     clearTimeout(t._timer);
-    t._timer = setTimeout(function(){ t.classList.remove('show'); }, 1600);
+    if(actionLabel){
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = actionLabel;
+      btn.addEventListener('click', function(){
+        t.classList.remove('show');
+        if(actionFn) actionFn();
+      });
+      t.appendChild(btn);
+    }
+    t.classList.add('show');
+    t._timer = setTimeout(function(){ t.classList.remove('show'); }, duration || (actionLabel ? 4500 : 1600));
   }
 
   var modalCb = null;
   function openModal(title, desc, text, okLabel, cb, readonly){
     $('modalTitle').textContent = title;
     $('modalDesc').textContent = desc;
+    $('modalText').style.display = '';
     $('modalText').value = text || '';
     $('modalText').readOnly = !!readonly;
     $('modalOk').textContent = okLabel || '确定';
@@ -643,6 +660,15 @@
     setTimeout(function(){ if(readonly) $('modalText').select(); else $('modalText').focus(); }, 50);
   }
   function closeModal(){ $('modal').classList.add('hidden'); modalCb = null; }
+
+  function openConfirm(title, desc, okLabel, cb){
+    $('modalTitle').textContent = title;
+    $('modalDesc').textContent = desc;
+    $('modalText').style.display = 'none';
+    $('modalOk').textContent = okLabel || '确定';
+    modalCb = cb || null;
+    $('modal').classList.remove('hidden');
+  }
 
   /* ---------- tabs ---------- */
   function showTab(tab){
@@ -780,7 +806,39 @@
     return base + ' · 周' + '日一二三四五六'.charAt(d.getDay());
   }
 
+  function deleteRecord(r){
+    var idx = S.records.findIndex(function(x){ return x.id === r.id; });
+    if(idx < 0) return;
+    var removed = S.records.splice(idx, 1)[0];
+    save5(); renderHome(); renderEntry();
+    toast('已删除', '撤销', function(){
+      S.records.splice(idx, 0, removed);
+      save5(); renderHome(); renderEntry();
+      toast('已恢复');
+    }, 5000);
+  }
+
+  function closeOtherRows(except){
+    var open = document.querySelectorAll('.rec.open');
+    for(var i = 0; i < open.length; i++){
+      if(open[i] !== except){
+        open[i].classList.remove('open');
+        open[i].style.transform = 'translateX(0)';
+      }
+    }
+  }
+
   function recordRow(r, showDate){
+    var wrap = document.createElement('div');
+    wrap.className = 'rec-wrap';
+
+    var action = document.createElement('button');
+    action.type = 'button';
+    action.className = 'rec-action';
+    action.textContent = '删除';
+    action.addEventListener('click', function(){ deleteRecord(r); });
+    wrap.appendChild(action);
+
     var row = document.createElement('div');
     row.className = 'rec';
     var ico = document.createElement('div');
@@ -803,13 +861,56 @@
     row.appendChild(amt);
     var del = document.createElement('button');
     del.className = 'del'; del.type = 'button'; del.textContent = '×';
-    del.addEventListener('click', function(){
-      if(!confirm('删除这条记录？')) return;
-      S.records = S.records.filter(function(x){ return x.id !== r.id; });
-      save5(); renderHome(); renderEntry(); toast('已删除');
-    });
+    del.addEventListener('click', function(){ deleteRecord(r); });
     row.appendChild(del);
-    return row;
+
+    var startX = 0, startY = 0, dx = 0, dragging = false;
+    row.addEventListener('touchstart', function(e){
+      if(e.touches.length !== 1) return;
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+      dx = 0; dragging = false;
+      row.style.transition = 'none';
+    }, { passive: true });
+
+    row.addEventListener('touchmove', function(e){
+      if(e.touches.length !== 1) return;
+      var mx = e.touches[0].clientX - startX;
+      var my = e.touches[0].clientY - startY;
+      if(!dragging){
+        if(Math.abs(mx) > Math.abs(my) && Math.abs(mx) > 8) dragging = true;
+        else if(Math.abs(my) > 8) return;
+      }
+      if(!dragging) return;
+      if(mx > 0) mx = 0;
+      if(mx < -88) mx = -88;
+      dx = mx;
+      row.style.transform = 'translateX(' + mx + 'px)';
+      if(e.cancelable) e.preventDefault();
+    }, { passive: false });
+
+    row.addEventListener('touchend', function(){
+      row.style.transition = 'transform .2s';
+      if(dx < -40){
+        row.style.transform = 'translateX(-76px)';
+        row.classList.add('open');
+        closeOtherRows(row);
+      }else{
+        row.style.transform = 'translateX(0)';
+        row.classList.remove('open');
+      }
+      dragging = false;
+    });
+
+    row.addEventListener('click', function(){
+      if(row.classList.contains('open')){
+        row.classList.remove('open');
+        row.style.transform = 'translateX(0)';
+      }
+    });
+
+    wrap.appendChild(row);
+    return wrap;
   }
 
   function findEmoji(name){
@@ -1150,27 +1251,29 @@
       try{
         var data = JSON.parse(text);
         if(!data || typeof data !== 'object') throw new Error('格式不正确');
-        if(!confirm('导入会覆盖当前的工资设置、固定支出和 ' + S.records.length + ' 条记录，继续？')) return;
         var next = normalize({
           profile: data.profile || null,
           recurring: Array.isArray(data.recurring) ? data.recurring : [],
           records: Array.isArray(data.records) ? data.records : (Array.isArray(data) ? data : []),
           onboarded: !!data.onboarded
         });
-        S = next;
-        save5();
-        closeModal();
-        renderHome(); renderSettings();
-        toast('已导入');
-      }catch(err){ alert('导入失败：' + err.message); }
+        openConfirm('覆盖当前数据？', '将导入 ' + next.records.length + ' 条记录，并覆盖现有工资设置和固定支出。', '导入', function(){
+          S = next;
+          save5();
+          closeModal();
+          renderHome(); renderEntry(); renderSettings();
+          toast('已导入 ' + next.records.length + ' 条');
+        });
+      }catch(err){ toast('导入失败：' + err.message); }
     });
   }
 
   function clearData(){
     if(!S.records.length){ toast('还没有记录'); return; }
-    if(!confirm('确定清空全部 ' + S.records.length + ' 条记录？工资设置和固定支出会保留。')) return;
-    S.records = [];
-    save5(); renderHome(); renderSettings(); toast('已清空');
+    openConfirm('清空所有记录', '将删除全部 ' + S.records.length + ' 条记录，工资设置和固定支出会保留。', '清空', function(){
+      S.records = [];
+      save5(); closeModal(); renderHome(); renderEntry(); renderSettings(); toast('已清空');
+    });
   }
 
   /* ---------- events ---------- */
