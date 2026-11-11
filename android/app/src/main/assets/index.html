@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#4f46e5">
+<meta name="description" content="轻记账：极简本地记账，支持日/周/月/年统计，数据只保存在本机。">
+<title>轻记账 · Lite Ledger</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<style>
+  :root{
+    --bg:#f4f5f7; --card:#fff; --ink:#111827; --muted:#6b7280; --line:#eceef1;
+    --accent:#4f46e5; --accent-2:#7c3aed; --red:#ef4444; --green:#10b981;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0;background:#e9ebf0}
+  body{
+    color:var(--ink); font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  button{font:inherit;cursor:pointer}
+  input,select,textarea{font:inherit;color:inherit}
+  .app{
+    max-width:520px;margin:0 auto;min-height:100vh;min-height:100dvh;background:var(--bg);
+    padding-bottom:calc(76px + env(safe-area-inset-bottom));position:relative;overflow-x:hidden;
+  }
+  .view{padding:16px 16px 8px}
+  .hidden{display:none !important}
+  .top{display:flex;align-items:center;justify-content:space-between;padding:4px 2px 14px;min-height:40px}
+  .brand{font-size:20px;font-weight:700;letter-spacing:-.3px;display:flex;align-items:center;gap:8px}
+  .logo{
+    width:30px;height:30px;border-radius:9px;display:grid;place-items:center;color:#fff;font-size:16px;font-weight:700;
+    background:linear-gradient(135deg,var(--accent),var(--accent-2));box-shadow:0 4px 10px -3px rgba(79,70,229,.6);
+  }
+  .today-btn{border:none;background:#fff;color:var(--accent);font-size:12.5px;padding:7px 12px;border-radius:999px;box-shadow:0 1px 2px rgba(17,24,39,.06)}
+  .hint{color:var(--muted);font-size:12px}
+  .monthbar{display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:12px}
+  .monthbar button{border:none;background:#fff;width:34px;height:34px;border-radius:11px;font-size:19px;color:#4b5563;box-shadow:0 1px 2px rgba(17,24,39,.05);line-height:1}
+  .monthbar span{font-size:15px;font-weight:600;min-width:110px;text-align:center}
+  .summary-card{
+    background:linear-gradient(135deg,var(--accent),var(--accent-2));border-radius:20px;padding:18px;color:#fff;
+    box-shadow:0 12px 26px -12px rgba(79,70,229,.75);margin-bottom:14px;
+  }
+  .s-label{font-size:13px;opacity:.85}
+  .s-value{font-size:34px;font-weight:700;letter-spacing:-1px;margin:2px 0 16px;font-variant-numeric:tabular-nums}
+  .s-row{display:flex;gap:28px}
+  .s-row span{display:block;font-size:12px;opacity:.8;margin-bottom:2px}
+  .s-row b{font-size:15px;font-weight:600;font-variant-numeric:tabular-nums}
+  .card{background:var(--card);border-radius:18px;padding:16px;margin-bottom:14px;box-shadow:0 1px 3px rgba(17,24,39,.04)}
+  .seg{display:flex;background:#f1f3f6;border-radius:12px;padding:4px;gap:4px;margin-bottom:14px}
+  .seg button{flex:1;border:none;background:transparent;padding:8px;border-radius:9px;font-size:14px;color:var(--muted);font-weight:500}
+  .seg button.active{background:#fff;color:var(--accent);box-shadow:0 1px 3px rgba(17,24,39,.08);font-weight:600}
+  .amount-row{display:flex;align-items:center;gap:6px;border-bottom:1px solid var(--line);padding:2px 2px 10px;margin-bottom:12px}
+  .currency{font-size:24px;color:#9ca3af;font-weight:600}
+  #amount{border:none;outline:none;background:transparent;font-size:34px;font-weight:700;width:100%;min-width:0;letter-spacing:-1px;font-variant-numeric:tabular-nums}
+  #amount::placeholder{color:#d1d5db}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+  .chip{border:1px solid #e5e7eb;background:#fff;border-radius:999px;padding:7px 12px;font-size:13px;color:#4b5563;display:inline-flex;gap:5px;align-items:center;line-height:1}
+  .chip.active{background:#eef2ff;border-color:#c7d2fe;color:var(--accent);font-weight:600}
+  .meta-row{display:flex;gap:8px;margin-bottom:10px}
+  .meta-row select,.meta-row input,.note-input{
+    flex:1;min-width:0;border:1px solid var(--line);background:#fafbfc;border-radius:11px;padding:10px;font-size:13px;color:#374151;outline:none;
+  }
+  .meta-row select:focus,.meta-row input:focus,.note-input:focus{border-color:#c7d2fe;background:#fff}
+  .note-input{width:100%;margin-bottom:2px}
+  .save{width:100%;border:none;border-radius:13px;padding:14px;font-size:15px;font-weight:600;color:#fff;background:var(--accent);margin-top:12px;transition:opacity .15s}
+  .save:disabled{background:#c7cbe0;cursor:default}
+  .list-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+  .list-head h3{font-size:14px;margin:0;color:#374151;font-weight:600}
+  .list-head span{font-size:12px;color:#9ca3af}
+  .day-group{margin-top:8px}
+  .day-head{font-size:11px;color:#9ca3af;margin:10px 2px 4px;letter-spacing:.2px}
+  .rec{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f4f5f7}
+  .rec:last-child{border-bottom:none}
+  .rec .ico{width:36px;height:36px;border-radius:11px;background:#f3f4f6;display:grid;place-items:center;font-size:17px;flex:none}
+  .rec .main{flex:1;min-width:0}
+  .rec .t{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rec .s{font-size:11px;color:#9ca3af;margin-top:1px}
+  .rec .amt{font-size:14px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .rec .amt.exp{color:#111827}
+  .rec .amt.inc{color:var(--green)}
+  .rec .del{border:none;background:transparent;color:#d1d5db;font-size:17px;padding:6px 0 6px 6px;line-height:1}
+  .rec .del:active{color:var(--red)}
+  .empty{text-align:center;padding:30px 0 26px;color:#9ca3af;font-size:13px}
+  .empty .emoji{font-size:30px;margin-bottom:8px}
+  .empty p{margin:0}
+  .empty.small{padding:18px 0}
+  .stat-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+  .stat-cards div{background:#fff;border-radius:14px;padding:12px 8px;text-align:center;box-shadow:0 1px 3px rgba(17,24,39,.04)}
+  .stat-cards span{display:block;font-size:11px;color:#9ca3af;margin-bottom:3px}
+  .stat-cards b{font-size:16px;font-weight:700;font-variant-numeric:tabular-nums}
+  .chart{display:flex;align-items:flex-end;gap:3px;height:150px;padding-top:8px}
+  .chart .col{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:4px;height:100%;min-width:0}
+  .chart .bar{width:72%;max-width:24px;background:#c7d2fe;border-radius:4px 4px 2px 2px;min-height:2px;transition:height .2s}
+  .chart .bar.zero{background:#eef0f4}
+  .chart .lbl{font-size:9px;color:#9ca3af;height:12px;white-space:nowrap}
+  .catrow{display:flex;align-items:center;gap:10px;padding:7px 0}
+  .catrow .name{width:76px;font-size:13px;color:#374151;display:flex;gap:5px;align-items:center;flex:none}
+  .catrow .track{flex:1;height:8px;background:#f1f3f6;border-radius:999px;overflow:hidden}
+  .catrow .fill{height:100%;background:linear-gradient(90deg,#818cf8,#6366f1);border-radius:999px}
+  .catrow .val{width:82px;text-align:right;font-size:12px;color:#6b7280;font-variant-numeric:tabular-nums;flex:none}
+  .card-title{font-size:14px;margin:0 0 10px;color:#374151}
+  .muted{color:var(--muted);font-size:13px;margin:6px 0}
+  .btn-row{display:flex;gap:10px;margin:12px 0 10px}
+  .btn{flex:1;border:1px solid var(--line);background:#fff;border-radius:12px;padding:11px;font-size:14px;color:#374151}
+  .btn:active{background:#f9fafb}
+  .btn.danger{color:var(--red);border-color:#fee2e2}
+  .btn.full{width:100%;flex:none}
+  .tabbar{
+    position:fixed;left:0;right:0;bottom:0;max-width:520px;margin:0 auto;z-index:20;
+    background:rgba(255,255,255,.97);backdrop-filter:blur(12px);border-top:1px solid var(--line);
+    display:flex;padding:7px 6px calc(7px + env(safe-area-inset-bottom));
+  }
+  .tabbar button{flex:1;border:none;background:transparent;padding:5px 0;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:10.5px;color:#9ca3af}
+  .tabbar .ti{font-size:19px;line-height:1}
+  .tabbar button.active{color:var(--accent);font-weight:600}
+  .toast{
+    position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(8px);
+    background:rgba(17,24,39,.92);color:#fff;padding:10px 16px;border-radius:999px;font-size:13px;opacity:0;pointer-events:none;
+    transition:opacity .18s,transform .18s;z-index:60;white-space:nowrap;
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .modal{position:fixed;inset:0;background:rgba(17,24,39,.45);display:flex;align-items:flex-end;justify-content:center;z-index:50}
+  .modal-card{background:#fff;width:100%;max-width:520px;border-radius:20px 20px 0 0;padding:20px 18px calc(20px + env(safe-area-inset-bottom));max-height:88vh;overflow:auto}
+  .modal-card h3{margin:0 0 6px;font-size:16px}
+  .modal-card p{margin:0 0 6px;font-size:12.5px;color:var(--muted)}
+  .modal-card textarea{width:100%;height:170px;border:1px solid var(--line);border-radius:12px;padding:10px;font:12px/1.5 ui-monospace,Menlo,Consolas,monospace;resize:none;margin:10px 0;background:#fafbfc}
+  .modal-actions{display:flex;gap:10px}
+  .modal-actions button{flex:1;padding:12px;border-radius:12px;border:1px solid var(--line);background:#fff;font-size:14px}
+  .modal-actions .primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+  @media(min-width:560px){
+    .app{border-left:1px solid #e5e7eb;border-right:1px solid #e5e7eb;min-height:100vh}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <section class="view" id="view-home">
+    <div class="top">
+      <div class="brand"><span class="logo">¥</span>轻记账</div>
+      <button class="today-btn" id="todayBtn">回到今天</button>
+    </div>
+
+    <div class="monthbar">
+      <button id="prevMonth" aria-label="上个月">‹</button>
+      <span id="monthLabel">—</span>
+      <button id="nextMonth" aria-label="下个月">›</button>
+    </div>
+
+    <div class="summary-card">
+      <div class="s-label">本月结余</div>
+      <div class="s-value" id="sBalance">¥0.00</div>
+      <div class="s-row">
+        <div><span>收入</span><b id="sIncome">¥0.00</b></div>
+        <div><span>支出</span><b id="sExpense">¥0.00</b></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="seg" id="typeSeg">
+        <button data-type="expense" class="active">支出</button>
+        <button data-type="income">收入</button>
+      </div>
+      <div class="amount-row">
+        <span class="currency">¥</span>
+        <input id="amount" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0.00" autocomplete="off">
+      </div>
+      <div class="chips" id="catChips"></div>
+      <div class="meta-row">
+        <select id="account"></select>
+        <input id="date" type="date">
+      </div>
+      <input id="note" class="note-input" type="text" maxlength="30" placeholder="备注（可选）" autocomplete="off">
+      <button id="saveBtn" class="save" disabled>记一笔</button>
+    </div>
+
+    <div class="card">
+      <div class="list-head"><h3>本月记录</h3><span id="countLabel">0 笔</span></div>
+      <div id="records"></div>
+      <div id="emptyState" class="empty">
+        <div class="emoji">📒</div>
+        <p>还没有记录，记下第一笔吧</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="view hidden" id="view-stats">
+    <div class="top">
+      <div class="brand">统计</div>
+      <span class="hint">日 / 周 / 月 / 年</span>
+    </div>
+    <div class="seg" id="periodSeg">
+      <button data-p="day">日</button>
+      <button data-p="week">周</button>
+      <button data-p="month" class="active">月</button>
+      <button data-p="year">年</button>
+    </div>
+    <div class="stat-cards">
+      <div><span>支出</span><b id="pExpense">¥0</b></div>
+      <div><span>收入</span><b id="pIncome">¥0</b></div>
+      <div><span>笔数</span><b id="pCount">0</b></div>
+    </div>
+    <div class="card">
+      <div class="list-head"><h3>支出趋势</h3><span id="trendSub"></span></div>
+      <div class="chart" id="chart"></div>
+    </div>
+    <div class="card">
+      <div class="list-head"><h3>分类占比</h3><span id="catSub"></span></div>
+      <div id="catList"></div>
+      <div id="catEmpty" class="empty small hidden"><p>这段时间没有支出</p></div>
+    </div>
+  </section>
+
+  <section class="view hidden" id="view-settings">
+    <div class="top"><div class="brand">设置</div></div>
+    <div class="card">
+      <h3 class="card-title">数据</h3>
+      <p class="muted">共 <b id="totalCount">0</b> 条记录，全部保存在本机。</p>
+      <div class="btn-row">
+        <button class="btn" id="exportBtn">导出</button>
+        <button class="btn" id="importBtn">导入</button>
+      </div>
+      <button class="btn danger full" id="clearBtn">清空所有记录</button>
+    </div>
+    <div class="card">
+      <h3 class="card-title">关于</h3>
+      <p class="muted">轻记账 v1.0.0 · 极简本地记账</p>
+      <p class="muted">不联网、不上传、无广告。数据只存在这台设备上，卸载前记得先导出备份。</p>
+      <p class="muted" id="repoLine">开源项目 · MIT License</p>
+    </div>
+  </section>
+
+  <nav class="tabbar">
+    <button data-tab="home" class="active"><span class="ti">🏠</span>首页</button>
+    <button data-tab="stats"><span class="ti">📊</span>统计</button>
+    <button data-tab="settings"><span class="ti">⚙️</span>设置</button>
+  </nav>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="modal hidden" id="modal">
+  <div class="modal-card">
+    <h3 id="modalTitle"></h3>
+    <p id="modalDesc"></p>
+    <textarea id="modalText" spellcheck="false"></textarea>
+    <div class="modal-actions">
+      <button id="modalCancel">取消</button>
+      <button id="modalOk" class="primary">确定</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  var KEY = 'litledger.records.v1';
+
+  var CATS = {
+    expense: [
+      ['餐饮','🍜'], ['交通','🚇'], ['购物','🛍️'], ['居住','🏠'], ['娱乐','🎬'],
+      ['医疗','💊'], ['教育','📚'], ['人情','🎁'], ['其他','📦']
+    ],
+    income: [
+      ['工资','💼'], ['奖金','🎉'], ['理财','📈'], ['兼职','💪'], ['其他','✨']
+    ]
+  };
+
+  var ACCOUNTS = ['微信', '支付宝', '银行卡', '现金', '公积金'];
+
+  var records = load();
+  var viewMonth = startOfMonth(new Date());
+  var entryType = 'expense';
+  var cat = '餐饮';
+  var account = '微信';
+  var period = 'month';
+
+  function $(id){ return document.getElementById(id); }
+  function pad(n){ return n < 10 ? '0' + n : '' + n; }
+  function ymd(d){ return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+  function parseDate(s){
+    var p = String(s).split('-');
+    return new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]));
+  }
+  function startOfMonth(d){ return new Date(d.getFullYear(), d.getMonth(), 1); }
+  function money(n){
+    n = Number(n) || 0;
+    return '¥' + n.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  function shortMoney(n){
+    n = Number(n) || 0;
+    return '¥' + n.toLocaleString('zh-CN', { maximumFractionDigits: 0 });
+  }
+  function uid(){
+    return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  }
+
+  function load(){
+    try{
+      var raw = localStorage.getItem(KEY);
+      var arr = raw ? JSON.parse(raw) : [];
+      return Array.isArray(arr) ? arr : [];
+    }catch(e){ return []; }
+  }
+
+  function persist(){
+    try{ localStorage.setItem(KEY, JSON.stringify(records)); }catch(e){}
+  }
+
+  function toast(msg){
+    var t = $('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(t._timer);
+    t._timer = setTimeout(function(){ t.classList.remove('show'); }, 1600);
+  }
+
+  /* ---------- tabs ---------- */
+  function showTab(tab){
+    if(['home','stats','settings'].indexOf(tab) < 0) tab = 'home';
+    ['home','stats','settings'].forEach(function(t){
+      $('view-' + t).classList.toggle('hidden', t !== tab);
+    });
+    var btns = document.querySelectorAll('.tabbar button');
+    for(var i = 0; i < btns.length; i++){
+      btns[i].classList.toggle('active', btns[i].getAttribute('data-tab') === tab);
+    }
+    if(tab === 'stats') renderStats();
+    if(tab === 'settings') renderSettings();
+    if(location.hash !== '#' + tab){
+      try{ history.replaceState(null, '', '#' + tab); }
+      catch(e){ location.hash = tab; }
+    }
+    window.scrollTo(0, 0);
+  }
+
+  /* ---------- home ---------- */
+  function renderChips(){
+    var box = $('catChips');
+    box.innerHTML = '';
+    CATS[entryType].forEach(function(item){
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'chip' + (item[0] === cat ? ' active' : '');
+      b.innerHTML = '<span>' + item[1] + '</span>' + item[0];
+      b.addEventListener('click', function(){
+        cat = item[0];
+        renderChips();
+      });
+      box.appendChild(b);
+    });
+  }
+
+  function renderAccounts(){
+    var sel = $('account');
+    sel.innerHTML = '';
+    ACCOUNTS.forEach(function(a){
+      var o = document.createElement('option');
+      o.value = a;
+      o.textContent = a;
+      sel.appendChild(o);
+    });
+    sel.value = account;
+  }
+
+  function renderHome(){
+    var y = viewMonth.getFullYear();
+    var m = viewMonth.getMonth();
+    $('monthLabel').textContent = y + '年' + (m + 1) + '月';
+
+    var monthRecords = records.filter(function(r){
+      var d = parseDate(r.date);
+      return d.getFullYear() === y && d.getMonth() === m;
+    });
+
+    var income = 0, expense = 0;
+    monthRecords.forEach(function(r){
+      if(r.type === 'income') income += Number(r.amount) || 0;
+      else expense += Number(r.amount) || 0;
+    });
+
+    $('sIncome').textContent = money(income);
+    $('sExpense').textContent = money(expense);
+    $('sBalance').textContent = money(income - expense);
+    $('countLabel').textContent = monthRecords.length + ' 笔';
+
+    var list = $('records');
+    list.innerHTML = '';
+
+    var empty = $('emptyState');
+    if(!monthRecords.length){
+      empty.classList.remove('hidden');
+      return;
+    }
+    empty.classList.add('hidden');
+
+    var groups = {};
+    monthRecords.slice().sort(function(a, b){
+      if(a.date === b.date) return (b.createdAt || 0) - (a.createdAt || 0);
+      return a.date < b.date ? 1 : -1;
+    }).forEach(function(r){
+      if(!groups[r.date]) groups[r.date] = [];
+      groups[r.date].push(r);
+    });
+
+    Object.keys(groups).sort().reverse().forEach(function(date){
+      var g = document.createElement('div');
+      g.className = 'day-group';
+      var h = document.createElement('div');
+      h.className = 'day-head';
+      h.textContent = dateLabel(date);
+      g.appendChild(h);
+
+      groups[date].forEach(function(r){
+        g.appendChild(recordRow(r));
+      });
+      list.appendChild(g);
+    });
+  }
+
+  function dateLabel(date){
+    var d = parseDate(date);
+    var today = new Date();
+    var t0 = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    var diff = Math.round((t0 - d) / 86400000);
+    var base = (d.getMonth() + 1) + '月' + d.getDate() + '日';
+    if(diff === 0) return base + ' · 今天';
+    if(diff === 1) return base + ' · 昨天';
+    return base + ' · 周' + '日一二三四五六'.charAt(d.getDay());
+  }
+
+  function recordRow(r){
+    var row = document.createElement('div');
+    row.className = 'rec';
+
+    var ico = document.createElement('div');
+    ico.className = 'ico';
+    ico.textContent = findEmoji(r.category);
+    row.appendChild(ico);
+
+    var main = document.createElement('div');
+    main.className = 'main';
+    var t = document.createElement('div');
+    t.className = 't';
+    t.textContent = r.note ? r.note : r.category;
+    var s = document.createElement('div');
+    s.className = 's';
+    s.textContent = r.category + ' · ' + r.account;
+    main.appendChild(t);
+    main.appendChild(s);
+    row.appendChild(main);
+
+    var amt = document.createElement('div');
+    amt.className = 'amt ' + (r.type === 'income' ? 'inc' : 'exp');
+    amt.textContent = (r.type === 'income' ? '+' : '-') + money(r.amount).replace('¥','');
+    row.appendChild(amt);
+
+    var del = document.createElement('button');
+    del.className = 'del';
+    del.type = 'button';
+    del.textContent = '×';
+    del.setAttribute('aria-label', '删除');
+    del.addEventListener('click', function(){
+      if(!confirm('删除这条记录？')) return;
+      records = records.filter(function(x){ return x.id !== r.id; });
+      persist();
+      renderHome();
+      toast('已删除');
+    });
+    row.appendChild(del);
+
+    return row;
+  }
+
+  function findEmoji(name){
+    var all = CATS.expense.concat(CATS.income);
+    for(var i = 0; i < all.length; i++){
+      if(all[i][0] === name) return all[i][1];
+    }
+    return '📦';
+  }
+
+  /* ---------- save ---------- */
+  function updateSaveState(){
+    var v = parseFloat($('amount').value);
+    $('saveBtn').disabled = !(v > 0);
+  }
+
+  function saveRecord(){
+    var v = parseFloat($('amount').value);
+    if(!(v > 0)) return;
+
+    var date = $('date').value || ymd(new Date());
+    var rec = {
+      id: uid(),
+      type: entryType,
+      amount: Math.round(v * 100) / 100,
+      category: cat,
+      account: account,
+      date: date,
+      note: $('note').value.trim(),
+      createdAt: Date.now()
+    };
+
+    records.push(rec);
+    persist();
+
+    viewMonth = startOfMonth(parseDate(date));
+    $('amount').value = '';
+    $('note').value = '';
+    updateSaveState();
+    renderHome();
+    toast('已记一笔');
+    $('amount').focus();
+  }
+
+  /* ---------- stats ---------- */
+  function periodRange(p){
+    var now = new Date();
+    var start, end;
+    if(p === 'day'){
+      start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    }else if(p === 'week'){
+      var dow = (now.getDay() + 6) % 7;
+      start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - dow);
+      end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 6, 23, 59, 59, 999);
+    }else if(p === 'year'){
+      start = new Date(now.getFullYear(), 0, 1);
+      end = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
+    }else{
+      start = new Date(now.getFullYear(), now.getMonth(), 1);
+      end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    }
+    return [start, end];
+  }
+
+  function inRange(r, start, end){
+    var t = parseDate(r.date).getTime();
+    return t >= start.getTime() && t <= end.getTime();
+  }
+
+  function renderStats(){
+    var range = periodRange(period);
+    var start = range[0], end = range[1];
+    var list = records.filter(function(r){ return inRange(r, start, end); });
+
+    var income = 0, expense = 0;
+    list.forEach(function(r){
+      if(r.type === 'income') income += Number(r.amount) || 0;
+      else expense += Number(r.amount) || 0;
+    });
+
+    $('pExpense').textContent = shortMoney(expense);
+    $('pIncome').textContent = shortMoney(income);
+    $('pCount').textContent = list.length;
+
+    var buckets = buildBuckets(period, start, end);
+    var chartStart = start;
+    if(period === 'day'){
+      chartStart = new Date(start.getTime());
+      chartStart.setDate(chartStart.getDate() - 6);
+    }
+    var chartList = records.filter(function(r){ return inRange(r, chartStart, end); });
+    chartList.forEach(function(r){
+      if(r.type !== 'expense') return;
+      var amt = Number(r.amount) || 0;
+      if(period === 'year'){
+        var d = parseDate(r.date);
+        if(d.getFullYear() === new Date().getFullYear()){
+          buckets[d.getMonth()].value += amt;
+        }
+        return;
+      }
+      for(var i = 0; i < buckets.length; i++){
+        if(buckets[i].date === r.date){ buckets[i].value += amt; break; }
+      }
+    });
+
+    drawChart(buckets);
+
+    var catMap = {};
+    list.forEach(function(r){
+      if(r.type !== 'expense') return;
+      catMap[r.category] = (catMap[r.category] || 0) + (Number(r.amount) || 0);
+    });
+    drawCategories(catMap, expense);
+
+    var sub = period === 'day' ? '今日' : period === 'week' ? '本周' : period === 'year' ? '今年' : '本月';
+    $('trendSub').textContent = period === 'day' ? '近 7 天' : period === 'week' ? '本周' : period === 'year' ? '今年' : '本月';
+    $('catSub').textContent = sub;
+  }
+
+  function buildBuckets(p, start, end){
+    var arr = [];
+    if(p === 'day'){
+      for(var i = 6; i >= 0; i--){
+        var d = new Date();
+        d.setDate(d.getDate() - i);
+        arr.push({ date: ymd(d), label: (d.getMonth() + 1) + '/' + d.getDate(), value: 0 });
+      }
+    }else if(p === 'week'){
+      for(var j = 0; j < 7; j++){
+        var d2 = new Date(start.getFullYear(), start.getMonth(), start.getDate() + j);
+        arr.push({ date: ymd(d2), label: '周' + '日一二三四五六'.charAt(d2.getDay()), value: 0 });
+      }
+    }else if(p === 'year'){
+      for(var m = 0; m < 12; m++){
+        arr.push({ date: null, month: m, label: (m + 1) + '月', value: 0 });
+      }
+    }else{
+      var days = new Date(start.getFullYear(), start.getMonth() + 1, 0).getDate();
+      for(var k = 1; k <= days; k++){
+        var d3 = new Date(start.getFullYear(), start.getMonth(), k);
+        arr.push({ date: ymd(d3), label: String(k), value: 0 });
+      }
+    }
+    return arr;
+  }
+
+  function drawChart(buckets){
+    var chart = $('chart');
+    chart.innerHTML = '';
+
+    var max = 1;
+    buckets.forEach(function(b){ if(b.value > max) max = b.value; });
+
+    buckets.forEach(function(b, idx){
+      var col = document.createElement('div');
+      col.className = 'col';
+
+      var bar = document.createElement('div');
+      bar.className = 'bar' + (b.value > 0 ? '' : ' zero');
+      bar.style.height = Math.max(2, b.value / max * 118) + 'px';
+      bar.title = b.label + ' ' + money(b.value);
+
+      var lbl = document.createElement('div');
+      lbl.className = 'lbl';
+      var show = buckets.length <= 12 || idx % 5 === 0 || idx === buckets.length - 1;
+      lbl.textContent = show ? b.label : '';
+
+      col.appendChild(bar);
+      col.appendChild(lbl);
+      chart.appendChild(col);
+    });
+  }
+
+  function drawCategories(map, total){
+    var box = $('catList');
+    box.innerHTML = '';
+    var keys = Object.keys(map).sort(function(a, b){ return map[b] - map[a]; });
+
+    if(!keys.length){
+      $('catEmpty').classList.remove('hidden');
+      return;
+    }
+    $('catEmpty').classList.add('hidden');
+
+    keys.forEach(function(k){
+      var val = map[k];
+      var pct = total > 0 ? (val / total * 100) : 0;
+
+      var row = document.createElement('div');
+      row.className = 'catrow';
+
+      var name = document.createElement('div');
+      name.className = 'name';
+      name.textContent = findEmoji(k) + ' ' + k;
+
+      var track = document.createElement('div');
+      track.className = 'track';
+      var fill = document.createElement('div');
+      fill.className = 'fill';
+      fill.style.width = Math.max(2, pct) + '%';
+      track.appendChild(fill);
+
+      var v = document.createElement('div');
+      v.className = 'val';
+      v.textContent = shortMoney(val) + ' · ' + pct.toFixed(0) + '%';
+
+      row.appendChild(name);
+      row.appendChild(track);
+      row.appendChild(v);
+      box.appendChild(row);
+    });
+  }
+
+  /* ---------- settings ---------- */
+  function renderSettings(){
+    $('totalCount').textContent = records.length;
+  }
+
+  var modalCb = null;
+
+  function openModal(title, desc, text, okLabel, cb, readonly){
+    $('modalTitle').textContent = title;
+    $('modalDesc').textContent = desc;
+    $('modalText').value = text || '';
+    $('modalText').readOnly = !!readonly;
+    $('modalOk').textContent = okLabel || '确定';
+    modalCb = cb || null;
+    $('modal').classList.remove('hidden');
+    if(readonly){
+      setTimeout(function(){ $('modalText').select(); }, 50);
+    }else{
+      setTimeout(function(){ $('modalText').focus(); }, 50);
+    }
+  }
+
+  function closeModal(){
+    $('modal').classList.add('hidden');
+    modalCb = null;
+  }
+
+  function exportData(){
+    var payload = {
+      app: 'LiteLedger',
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      records: records
+    };
+    openModal('导出数据', '长按全选并复制下面的 JSON，保存到备忘录或文件里。', JSON.stringify(payload, null, 2), '完成', null, true);
+  }
+
+  function importData(){
+    openModal('导入数据', '粘贴之前导出的 JSON。导入后会覆盖现有记录。', '', '导入', function(text){
+      try{
+        var data = JSON.parse(text);
+        var arr = Array.isArray(data) ? data : data.records;
+        if(!Array.isArray(arr)) throw new Error('格式不正确');
+        var clean = arr.filter(function(r){
+          return r && typeof r === 'object' && typeof r.date === 'string' && isFinite(Number(r.amount));
+        }).map(function(r){
+          return {
+            id: r.id || uid(),
+            type: r.type === 'income' ? 'income' : 'expense',
+            amount: Math.round((Number(r.amount) || 0) * 100) / 100,
+            category: String(r.category || '其他'),
+            account: String(r.account || '现金'),
+            date: r.date,
+            note: String(r.note || ''),
+            createdAt: Number(r.createdAt) || Date.now()
+          };
+        });
+        if(!confirm('导入 ' + clean.length + ' 条记录，并覆盖现有 ' + records.length + ' 条？')) return;
+        records = clean;
+        persist();
+        closeModal();
+        renderHome();
+        renderSettings();
+        toast('已导入 ' + clean.length + ' 条');
+      }catch(err){
+        alert('导入失败：' + err.message);
+      }
+    }, false);
+  }
+
+  function clearData(){
+    if(!records.length){ toast('还没有记录'); return; }
+    if(!confirm('确定清空全部 ' + records.length + ' 条记录？此操作不可恢复，建议先导出备份。')) return;
+    records = [];
+    persist();
+    renderHome();
+    renderSettings();
+    toast('已清空');
+  }
+
+  /* ---------- events ---------- */
+  $('amount').addEventListener('input', updateSaveState);
+  $('saveBtn').addEventListener('click', saveRecord);
+
+  $('typeSeg').addEventListener('click', function(e){
+    var btn = e.target.closest('button');
+    if(!btn) return;
+    entryType = btn.getAttribute('data-type');
+    var all = this.querySelectorAll('button');
+    for(var i = 0; i < all.length; i++) all[i].classList.toggle('active', all[i] === btn);
+    cat = CATS[entryType][0][0];
+    renderChips();
+  });
+
+  $('account').addEventListener('change', function(){ account = this.value; });
+
+  $('prevMonth').addEventListener('click', function(){
+    viewMonth = new Date(viewMonth.getFullYear(), viewMonth.getMonth() - 1, 1);
+    renderHome();
+  });
+  $('nextMonth').addEventListener('click', function(){
+    viewMonth = new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 1);
+    renderHome();
+  });
+  $('todayBtn').addEventListener('click', function(){
+    viewMonth = startOfMonth(new Date());
+    $('date').value = ymd(new Date());
+    renderHome();
+  });
+
+  $('periodSeg').addEventListener('click', function(e){
+    var btn = e.target.closest('button');
+    if(!btn) return;
+    period = btn.getAttribute('data-p');
+    var all = this.querySelectorAll('button');
+    for(var i = 0; i < all.length; i++) all[i].classList.toggle('active', all[i] === btn);
+    renderStats();
+  });
+
+  document.querySelector('.tabbar').addEventListener('click', function(e){
+    var btn = e.target.closest('button');
+    if(!btn) return;
+    showTab(btn.getAttribute('data-tab'));
+  });
+
+  window.addEventListener('hashchange', function(){
+    showTab((location.hash || '#home').replace('#', ''));
+  });
+
+  $('exportBtn').addEventListener('click', exportData);
+  $('importBtn').addEventListener('click', importData);
+  $('clearBtn').addEventListener('click', clearData);
+  $('modalCancel').addEventListener('click', closeModal);
+  $('modalOk').addEventListener('click', function(){
+    if(modalCb) modalCb($('modalText').value);
+    else closeModal();
+  });
+  $('modal').addEventListener('click', function(e){
+    if(e.target === this) closeModal();
+  });
+
+  /* ---------- init ---------- */
+  var today = new Date();
+  $('date').value = ymd(today);
+  renderAccounts();
+  renderChips();
+  renderHome();
+  showTab((location.hash || '#home').replace('#', ''));
+
+  if('serviceWorker' in navigator && location.protocol.indexOf('http') === 0){
+    navigator.serviceWorker.register('sw.js').catch(function(){});
+  }
+})();
+</script>
+</body>
+</html>
